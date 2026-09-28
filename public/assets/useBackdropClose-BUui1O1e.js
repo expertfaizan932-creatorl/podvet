@@ -108,7 +108,7 @@ import{b7 as M,r as t,u as $,j as e,F as x,b8 as D,b9 as z,c as W,ba as G,bb as 
               items-center
               gap-2
               ${n?"justify-center":""}
-            `,children:[e.jsx("img",{src:"/podvet.png",alt:"PodVet Logo",className:`\r
+            `,children:[e.jsx("img",{src:"/brand/icon-primary.png",alt:"PodVet Logo",className:`\r
                 h-8\r
                 w-auto\r
                 object-contain mr-2\r
