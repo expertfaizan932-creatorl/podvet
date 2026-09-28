@@ -130,14 +130,12 @@
     <header id="pageHeader" class="bg-white border-b border-gray-200 sticky top-0 z-50 backdrop-blur-md no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-brand-500/20">
-                    <i class="fa-solid fa-paw"></i>
-                </div>
+                <img src="/brand/logo-primary.png" alt="PodVet" class="h-9 w-auto object-contain">
                 <div>
                     <h1 class="text-xl font-bold font-display tracking-tight text-gray-800 flex items-center gap-2">
                         PodVet <span class="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium border border-brand-200">Referral & Loyalty Card</span>
                     </h1>
-                    <p class="text-xs text-gray-400">Customizable Pet Care Referral & Discount Pass</p>
+                    <p class="text-xs text-gray-400">Clinic Referral & Discount Pass</p>
                 </div>
             </div>
 
@@ -200,35 +198,29 @@
                         </div>
                         <div>
                             <label class="text-xs text-gray-500 mb-1 block">Discount Text / Badge</label>
-                            <input type="text" id="inputDiscount" value="20% OFF" readonly class="w-full bg-gray-100 border border-brand-300 rounded-lg px-3 py-1.5 text-xs text-brand-600 font-bold focus:outline-none cursor-not-allowed select-none">
+                            <input type="text" id="inputDiscount" value="50% OFF" readonly class="w-full bg-gray-100 border border-brand-300 rounded-lg px-3 py-1.5 text-xs text-brand-600 font-bold focus:outline-none cursor-not-allowed select-none">
                         </div>
                     </div>
 
                     <div class="flex items-center gap-2">
                         <p class="text-[11px] text-brand-600 bg-brand-50 border border-brand-200 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-                            <i class="fa-solid fa-lock"></i> Fixed 20% discount on the Referral Card â€” this field is not editable.
+                            <i class="fa-solid fa-lock"></i> Fixed 50% discount on the Referral Card â€” this field is not editable.
                         </p>
                     </div>
 
                     <div>
                         <label class="text-xs text-gray-500 mb-1 block">Main Offer Description</label>
-                        <input type="text" id="inputOfferDesc" value="Refer a friend & both get 20% off on Grooming!" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                        <input type="text" id="inputOfferDesc" value="Use this code at signup & get 50% OFF your first invoice!" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                     </div>
                 </div>
 
-                <!-- 3. Customer & Pet Info -->
+                <!-- 3. Clinic Details -->
                 <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-3">
-                    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider block">3. Member & Pet Details</label>
+                    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider block">3. Clinic Details</label>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">Owner Name</label>
-                            <input type="text" id="inputOwnerName" value="Ayesha Khan" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 mb-1 block">Pet Name & Type</label>
-                            <input type="text" id="inputPetInfo" value="Rocky (German Shepherd)" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
-                        </div>
+                    <div>
+                        <label class="text-xs text-gray-500 mb-1 block">Clinic Name</label>
+                        <input type="text" id="inputOwnerName" value="PodVet Clinic" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -272,7 +264,7 @@
 
                     <div>
                         <label class="text-xs text-gray-500 mb-1 block">Back Side Terms & Conditions</label>
-                        <textarea id="inputTerms" rows="2" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg p-2 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">1. 20% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.</textarea>
+                        <textarea id="inputTerms" rows="2" oninput="updateCard()" class="w-full bg-white border border-gray-300 rounded-lg p-2 text-xs text-gray-800 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">1. 50% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.</textarea>
                     </div>
                 </div>
 
@@ -315,36 +307,29 @@
                         <!-- Card Top Bar: Logo & Main Badge -->
                         <div class="relative z-10 flex items-start justify-between">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-10 h-10 rounded-xl bg-white text-brand-700 flex items-center justify-center font-black text-xl shadow-md">
-                                    <i class="fa-solid fa-paw"></i>
-                                </div>
+                                <img src="/brand/logo-reversed.png" alt="PodVet" class="h-6 w-auto object-contain drop-shadow">
                                 <div>
-                                    <h3 class="font-extrabold tracking-wider font-display text-lg uppercase leading-tight text-white drop-shadow">PODVET</h3>
                                     <p id="previewCardTitle" class="text-[10px] tracking-widest uppercase font-semibold text-brand-200">PODVET REFERRAL CARD</p>
                                 </div>
                             </div>
 
                             <!-- DISCOUNT BADGE (PROMINENT UI DISPLAY) -->
                             <div class="glass-badge px-3 py-1.5 rounded-xl flex flex-col items-end shadow-lg border border-white/30 bg-amber-400/20">
-                                <span class="text-[9px] uppercase tracking-wider font-bold text-amber-200">Fixed 20% Discount</span>
-                                <span id="previewDiscount" class="text-xl font-black text-amber-300 font-display drop-shadow">20% OFF</span>
+                                <span class="text-[9px] uppercase tracking-wider font-bold text-amber-200">Fixed 50% Discount</span>
+                                <span id="previewDiscount" class="text-xl font-black text-amber-300 font-display drop-shadow">50% OFF</span>
                             </div>
                         </div>
 
-                        <!-- Card Middle Body: Owner & Pet Info -->
+                        <!-- Card Middle Body: Clinic Info -->
                         <div class="relative z-10 my-auto py-2">
                             <p id="previewOfferDesc" class="text-xs font-medium text-brand-100 mb-3 bg-black/20 px-2.5 py-1 rounded-lg border border-white/10 inline-block max-w-full truncate">
-                                Refer a friend & both get 20% off on Grooming!
+                                Use this code at signup & get 50% OFF your first invoice!
                             </p>
 
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p class="text-[9px] uppercase tracking-wider text-brand-200/80 font-medium">Pet Owner Name</p>
-                                    <p id="previewOwnerName" class="text-sm font-bold text-white tracking-wide truncate">Ayesha Khan</p>
-                                </div>
-                                <div>
-                                    <p class="text-[9px] uppercase tracking-wider text-brand-200/80 font-medium">Pet Name & Breed</p>
-                                    <p id="previewPetInfo" class="text-sm font-bold text-brand-200 tracking-wide truncate">Rocky (German Shepherd)</p>
+                            <div class="flex">
+                                <div class="flex-1">
+                                    <p class="text-[9px] uppercase tracking-wider text-brand-200/80 font-medium">Clinic Name</p>
+                                    <p id="previewOwnerName" class="text-sm font-bold text-white tracking-wide truncate">PodVet Clinic</p>
                                 </div>
                             </div>
                         </div>
@@ -406,7 +391,7 @@
                         <div class="space-y-1.5 pt-2 border-t border-white/15">
                             <p class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Terms & Conditions</p>
                             <p id="previewTerms" class="text-[10px] text-slate-300 leading-tight">
-                                1. 20% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.
+                                1. 50% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.
                             </p>
                             <p id="previewContact" class="text-[9px] text-brand-300 font-mono pt-1">
                                 +92 300 1234567 | PodVet Care Clinic & Pet Store
@@ -438,7 +423,7 @@
                     <i class="fa-solid fa-circle-info text-brand-500"></i> Quick Guide:
                 </p>
                 <ul class="list-disc list-inside space-y-0.5 text-[11px] text-gray-500">
-                    <li>Referral Card par discount fixed 20% hai â€” change nahi ho sakta.</li>
+                    <li>Referral Card par discount fixed 50% hai â€” change nahi ho sakta.</li>
                     <li>"New Referral Card" button har baar ek naya unique code banata hai jo aap kisi aur clinic ko bhej sakty hain.</li>
                     <li>Front or Back dono sides live preview aur export ke liye tayyar hain.</li>
                     <li>Download button dabane se high quality image download ho jaye gi.</li>
@@ -458,42 +443,50 @@
         let currentSide = 'front';
         let currentTheme = 'emerald';
         let qrCodeObj = null;
-        // Referral card discount is FIXED at 20% and can never be edited.
-        const FIXED_DISCOUNT = '20% OFF';
+        // Referral card discount is FIXED at 50% and can never be edited.
+        const FIXED_DISCOUNT = '50% OFF';
+
+        // Card "Valid Thru" = one month from today. Formats a Date into the
+        // short uppercase card style (e.g. "30 NOV 2026").
+        function formatExpiryLabel(date) {
+            const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+            const d = date instanceof Date ? date : new Date(date);
+            if (isNaN(d.getTime())) return '30 DAYS FROM MINT';
+            const mm = String(d.getDate()).padStart(2, '0');
+            return `${mm} ${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
+        const oneMonthLabel = () => formatExpiryLabel(new Date(Date.now() + 30 * 86400000));
 
         const presets = {
             discount: {
                 title: 'PODVET DISCOUNT PASS',
-                discount: '20% OFF',
-                offer: '20% Discount on First Vaccination & Consultation',
+                discount: FIXED_DISCOUNT,
+                offer: '50% Discount on First Vaccination & Consultation',
                 owner: 'Usman Ghani',
-                pet: 'Bella (Golden Retriever)',
                 cardId: 'PV-DISC-102',
                 refCode: 'REF-POD20',
                 stamps: 2,
-                expiry: '31 DEC 2026',
+                expiry: oneMonthLabel(),
                 terms: '1. Valid on all veterinary consultations and pet products. 2. Non-refundable.',
                 theme: 'emerald'
             },
             referral: {
                 title: 'PODVET REFERRAL CARD',
                 discount: FIXED_DISCOUNT,
-                offer: 'Refer a friend & both get 20% off on Grooming!',
-                owner: 'Ayesha Khan',
-                pet: 'Rocky (German Shepherd)',
+                offer: 'Use this code at signup & get 50% OFF your first invoice!',
+                owner: 'PodVet Clinic',
                 cardId: 'PV-REF-994',
                 refCode: 'DR-AHMED-REF',
                 stamps: 3,
-                expiry: '30 NOV 2026',
-                terms: '1. 20% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.',
+                expiry: oneMonthLabel(),
+                terms: '1. 50% discount applies to vet consultation & pet grooming. 2. Present card at clinic counter. 3. Non-transferable.',
                 theme: 'emerald'
             },
             vip: {
                 title: 'PODVET VIP PET MEMBER',
-                discount: '20% OFF',
+                discount: FIXED_DISCOUNT,
                 offer: 'Exclusive flat discount on all Vet Visits & Boarding',
                 owner: 'Dr. Hamza',
-                pet: 'Coco (Shih Tzu)',
                 cardId: 'PV-VIP-001',
                 refCode: 'VIP-20-MEMBER',
                 stamps: 5,
@@ -511,7 +504,7 @@
             dark: 'bg-gradient-to-br from-slate-800 via-zinc-900 to-black'
         };
 
-        // Fix the discount field forever: always 20% OFF, never editable.
+        // Fix the discount field forever: always 50% OFF, never editable.
         function lockDiscount() {
             const field = document.getElementById('inputDiscount');
             field.value = FIXED_DISCOUNT;
@@ -540,14 +533,18 @@
             const original = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating card...';
-            const applyCode = (code) => {
+            const applyCode = (code, clinicName, expiryIso) => {
                 const refInput = document.getElementById('inputRefCode');
                 const idInput = document.getElementById('inputCardId');
                 applyPreset('referral');
                 refInput.value = code;
                 idInput.value = 'PV-REF-' + code.replace(/[^A-Z0-9]/gi, '').slice(-4) + '-' + Math.floor(10 + Math.random() * 89);
+                // The card always carries the referring CLINIC's name and is only
+                // valid for one month.
+                if (clinicName) document.getElementById('inputOwnerName').value = clinicName;
+                document.getElementById('inputExpiry').value = expiryIso ? formatExpiryLabel(expiryIso) : oneMonthLabel();
                 updateCard();
-                setGenMsg('New referral card ready! Code ' + code + ' \u2014 download the PNG and send it to the other clinic. They log in with this code.', true);
+                setGenMsg('New referral card ready! Code ' + code + ' \u2014 download the PNG and send it to the other clinic. They scan the QR or enter this code at signup.', true);
             };
             const fail = (msg) => {
                 btn.disabled = false;
@@ -559,7 +556,7 @@
             if (window.electronAPI && typeof window.electronAPI.generateReferral === 'function') {
                 window.electronAPI.generateReferral({})
                     .then((r) => {
-                        if (r && r.success && r.code) { applyCode(r.code); }
+                        if (r && r.success && r.code) { applyCode(r.code, r.clinicName, r.expiry); }
                         else { fail((r && (r.message || r.error && r.error.message)) || 'Could not generate a referral card.'); }
                     })
                     .catch((e) => fail(e && e.message)).finally(fin);
@@ -580,7 +577,7 @@
                 },
                 body: JSON.stringify({})
             }).then((r) => r.json()).then((j) => {
-                if (j && j.code) { applyCode(j.code); }
+                if (j && j.code) { applyCode(j.code, j.clinicName, j.expiry); }
                 else { fail((j && j.error && (j.error.message || j.error)) || 'Could not generate a referral card.'); }
             }).catch(() => fail('Timed out. Your free trial may be suspended \u2014 log in to check.')).finally(fin);
         }
@@ -597,7 +594,7 @@
             const qrElem = document.getElementById('qrcode');
             if (qrElem) {
                 qrCodeObj = new QRCode(qrElem, {
-                    text: "https://podvet.example.com/card/PV-REF-994",
+                    text: location.origin + "/signup?ref=DR-AHMED-REF",
                     width: 36,
                     height: 36,
                     colorDark : "#0f172a",
@@ -614,8 +611,7 @@
             const cardTitle = document.getElementById('inputCardTitle').value || 'PODVET REFERRAL CARD';
             const discount = FIXED_DISCOUNT; // always fixed
             const offerDesc = document.getElementById('inputOfferDesc').value || 'Special Referral Discount';
-            const ownerName = document.getElementById('inputOwnerName').value || 'Pet Owner';
-            const petInfo = document.getElementById('inputPetInfo').value || 'Pet Details';
+            const ownerName = document.getElementById('inputOwnerName').value || 'PodVet Clinic';
             const cardId = document.getElementById('inputCardId').value || 'PV-00000';
             const refCode = document.getElementById('inputRefCode').value || 'REF-GENERAL';
             const expiry = document.getElementById('inputExpiry').value || 'N/A';
@@ -628,7 +624,6 @@
             document.getElementById('previewDiscount').innerText = discount;
             document.getElementById('previewOfferDesc').innerText = offerDesc;
             document.getElementById('previewOwnerName').innerText = ownerName;
-            document.getElementById('previewPetInfo').innerText = petInfo;
             document.getElementById('previewCardId').innerText = cardId;
             document.getElementById('previewRefCode').innerText = refCode;
             document.getElementById('previewExpiry').innerText = expiry;
@@ -638,10 +633,11 @@
             // Render Back Stamps
             renderStamps(stampCount);
 
-            // Update QR code content
+            // Update QR code content: scanning it opens the signup page with the
+            // referral code pre-filled.
             if (qrCodeObj) {
                 qrCodeObj.clear();
-                qrCodeObj.makeCode(`https://podvet.com/verify?id=${encodeURIComponent(cardId)}&ref=${encodeURIComponent(refCode)}`);
+                qrCodeObj.makeCode(`${location.origin}/signup?ref=${encodeURIComponent(refCode)}`);
             }
         }
 
@@ -720,14 +716,13 @@
             document.getElementById('inputCardTitle').value = p.title;
             document.getElementById('inputOfferDesc').value = p.offer;
             document.getElementById('inputOwnerName').value = p.owner;
-            document.getElementById('inputPetInfo').value = p.pet;
             document.getElementById('inputCardId').value = p.cardId;
             document.getElementById('inputRefCode').value = p.refCode;
             document.getElementById('inputStamps').value = p.stamps;
             document.getElementById('inputExpiry').value = p.expiry;
             document.getElementById('inputTerms').value = p.terms;
 
-            // Discount stays fixed â€” the field is permanently locked to 20% OFF.
+            // Discount stays fixed â€” the field is permanently locked to 50% OFF.
             lockDiscount();
 
             setTheme(p.theme);

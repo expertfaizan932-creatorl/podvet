@@ -134,7 +134,7 @@ module.exports = function setupAuthHandlers(store) {
   ipcMain.handle('generate-referral', async (_event, payload) => {
     try {
       const data = await saasClient.generateReferral(payload);
-      return { success: true, code: data.code };
+      return { success: true, code: data.code, clinicName: data.clinicName, offer: data.offer, discount: data.discount, currency: data.currency, expiry: data.expiry };
     } catch (err) {
       return { success: false, message: err.message || 'Could not generate referral code', code: err.code };
     }
