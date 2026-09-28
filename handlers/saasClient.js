@@ -207,7 +207,6 @@ module.exports = {
   getBaseUrl: () => baseUrl,
   signup: (payload) => apiFetch('/api/clinics', { method: 'POST', body: payload }),
   login: (payload) => apiFetch('/api/auth/login', { method: 'POST', body: payload }),
-  referralLogin: (payload) => apiFetch('/api/auth/referral-login', { method: 'POST', body: payload }),
   generateReferral: (payload) => apiFetch('/api/referrals', { method: 'POST', auth: true, body: payload }),
   logoutRemote: (refreshToken) =>
     apiFetch('/api/auth/logout', { method: 'POST', auth: true, body: { refreshToken } }),

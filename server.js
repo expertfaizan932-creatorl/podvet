@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
@@ -7,10 +7,14 @@ const { AsyncLocalStorage } = require('async_hooks');
 const { ensureSuperAdminSchema, bootstrapSuperAdmin, registerSuperAdmin, authenticatePlatformAdmin } = require('./lib/superAdmin');
 const { registerSuperAdminExt } = require('./lib/superAdminExt');
 
-// Free-trial policy: every new clinic gets a 3-month trial by default, and a
-// referral card redemption adds one extra free month to BOTH the clinic that
-// redeemed the card and the clinic that shared it (3 + 1 = 4 months).
-const TRIAL_DAYS = 90;
+// Subscription policy: every new clinic gets ONE free month, then pays
+// MONTHLY_PRICE per month. A valid referral code is optional at signup and
+// stores REFERRAL_DISCOUNT against the clinic, which is applied to the first
+// invoice. The referring clinic is rewarded with extra trial days.
+const TRIAL_DAYS = 30;
+const MONTHLY_PRICE = 3000;
+const REFERRAL_DISCOUNT = 1500;
+const PLAN_CURRENCY = 'PKR';
 const REFERRAL_BONUS_DAYS = 30;
 const SUBSCRIPTION_DAY_MS = 86400000;
 
@@ -186,7 +190,8 @@ async function ensurePlatformSchema() {
   if (!cc[0].n) await platConn.query('INSERT INTO clinics (id, clinic_name, slug) VALUES (1, "PodVet Clinic", "podvet")');
   await platConn.query('UPDATE users SET clinic_id=1 WHERE clinic_id IS NULL');
   // Referral cards: a clinic shares a card carrying a code; the receiving
-  // clinic redeems it on the login page to self-provision their own clinic.
+  // clinic enters it as an optional field on the signup form. A valid code
+  // stores REFERRAL_DISCOUNT against the new clinic for its first invoice.
   await platConn.query(`CREATE TABLE IF NOT EXISTS referrals (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(60) NOT NULL,
@@ -196,10 +201,26 @@ async function ensurePlatformSchema() {
     status ENUM('active','redeemed','expired') DEFAULT 'active',
     referred_clinic_id INT DEFAULT NULL,
     redeemed_by VARCHAR(255) DEFAULT NULL,
+    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     redeemed_at TIMESTAMP NULL DEFAULT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-  await platConn.query('ALTER TABLE referrals ADD UNIQUE INDEX uq_referral_code (code)');
+  // Idempotent: this ALTER throws on the second startup ("Duplicate key name
+  // 'uq_referral_code'"), which used to abort the rest of this function and
+  // silently skip the migrations below.
+  const [refIdx] = await platConn.query(`SELECT COUNT(*) AS n FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='referrals' AND INDEX_NAME='uq_referral_code'`);
+  if (!refIdx[0].n) await platConn.query('ALTER TABLE referrals ADD UNIQUE INDEX uq_referral_code (code)');
+  // Idempotent column migrations for pre-existing databases.
+  for (const [table, column, ddl] of [
+    ['referrals', 'discount_amount', 'ALTER TABLE referrals ADD COLUMN discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER redeemed_by'],
+    ['clinics', 'referral_discount', 'ALTER TABLE clinics ADD COLUMN referral_discount DECIMAL(10,2) NOT NULL DEFAULT 0'],
+    ['clinics', 'referral_discount_applied', 'ALTER TABLE clinics ADD COLUMN referral_discount_applied TINYINT(1) NOT NULL DEFAULT 0'],
+  ]) {
+    const [has] = await platConn.query(`SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME=? AND COLUMN_NAME=?`, [table, column]);
+    if (!has[0].n) await platConn.query(ddl);
+  }
   const [refCount] = await platConn.query('SELECT COUNT(*) AS n FROM referrals');
   if (!refCount[0].n) {
     await platConn.query(`INSERT INTO referrals (code, referrer_clinic_name, offer) VALUES
@@ -550,79 +571,67 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 
-// Public referral verification (used by the shared referral card / QR code).
+// Single source of truth for referral-code validation. Shared by the public
+// verify endpoint and the signup path so a code that the UI accepts is exactly
+// a code the server honours. It never mutates state; callers that redeem a code
+// burn it themselves with a guarded `AND status='active'` UPDATE.
+async function resolveReferral(rawCode) {
+  const code = String(rawCode || '').trim().toUpperCase();
+  if (!code) return { valid: false, message: 'Enter the referral code from the card.' };
+  const [rows] = await platConn.query('SELECT * FROM referrals WHERE BINARY code = ?', [code]);
+  if (!rows.length) return { valid: false, message: 'Invalid referral code. Check the card you received.' };
+  const r = rows[0];
+  if (r.status !== 'active') {
+    return { valid: false, message: r.status === 'redeemed'
+      ? 'This referral code has already been used.'
+      : 'This referral code has expired.' };
+  }
+  // A card is only worth anything while the sender's subscription is still live.
+  if (r.referrer_clinic_id && !(await guardClinicSubscription(r.referrer_clinic_id))) {
+    await platConn.query("UPDATE referrals SET status='expired' WHERE id = ?", [r.id]);
+    return { valid: false, message: 'This referral code has expired because the referring clinic\u2019s trial ended.' };
+  }
+  return {
+    valid: true,
+    code: r.code,
+    referrerId: r.referrer_clinic_id,
+    clinicName: r.referrer_clinic_name,
+    offer: r.offer,
+    discount: REFERRAL_DISCOUNT,
+  };
+}
+
+// Public referral verification, used by the signup form's inline code check and
+// the shared referral card / QR code.
 app.get('/api/referrals/verify', async (req, res) => {
   try {
-    const code = String(req.query.code || '').trim().toUpperCase();
-    if (!code) return res.json({ valid: false, message: 'Enter the referral code from the card.' });
-    const [rows] = await platConn.query('SELECT code, referrer_clinic_name, referrer_clinic_id, offer, status FROM referrals WHERE BINARY code = ?', [code]);
-    if (!rows.length) return res.json({ valid: false, message: 'Invalid referral code. Check the card you received.' });
-    const r = rows[0];
-    if (r.status !== 'active') return res.json({ valid: false, message: 'This referral card has expired or has already been used.' });
-    // A card is only worth anything while the sender's trial is still running.
-    const ok = await guardClinicSubscription(r.referrer_clinic_id);
-    if (!ok) {
-      await platConn.query("UPDATE referrals SET status='expired' WHERE id = ?", [r.id]);
-      return res.json({ valid: false, message: 'This referral card has expired because the referring clinic\u2019s trial ended.' });
-    }
-    res.json({ valid: true, code: r.code, clinicName: r.referrer_clinic_name, offer: r.offer });
-  } catch (e) { res.json({ valid: false }); }
+    const r = await resolveReferral(req.query.code);
+    if (!r.valid) return res.json(r);
+    res.json({ valid: true, code: r.code, clinicName: r.clinicName, offer: r.offer, discount: r.discount, currency: PLAN_CURRENCY });
+  } catch (e) { res.status(500).json({ valid: false, message: 'Could not verify this referral code right now.' }); }
 });
 
-// Referral login: the receiving clinic enters the code from a shared referral
-// card. A valid, unused code self-provisions a brand-new clinic + OWNER
-// account and signs the caller in — no separate signup step needed. The new
-// clinic gets the standard 3-month trial PLUS one extra free month from the
-// referral, and the sender clinic's own trial is extended by one month too.
-app.post('/api/auth/referral-login', async (req, res) => {
+// Referral redemption for a clinic that has ALREADY signed up. Signup itself
+// accepts an optional referral code (see POST /api/clinics); this endpoint lets
+// a signed-in owner attach a code later. It only ever grants the
+// REFERRAL_DISCOUNT against the clinic's next invoice -- it never auto-creates
+// an account and never invents a password.
+app.post('/api/clinics/me/referral', authMiddleware, async (req, res) => {
   try {
-    const code = String((req.body.code || '').trim()).toUpperCase();
-    if (!code) return res.status(400).json({ error: { message: 'Please enter the referral code from the card.' } });
-    const [rows] = await platConn.query('SELECT * FROM referrals WHERE BINARY code = ?', [code]);
-    if (!rows.length) return res.status(400).json({ error: { message: 'Invalid referral code. Check the card you received from the other clinic.' } });
-    const ref = rows[0];
-    if (ref.status !== 'active') {
-      return res.status(400).json({ error: { message: 'This referral card has expired or has already been used.' } });
+    const r = await resolveReferral(req.body.code || req.body.referralCode);
+    if (!r.valid) return res.status(400).json({ error: { message: r.message } });
+    // Never stack a second referral discount on the same clinic.
+    const [cl] = await platConn.query('SELECT referral_discount, referral_discount_applied FROM clinics WHERE id = ?', [req.clinicId]);
+    if (cl.length && Number(cl[0].referral_discount || 0) > 0) {
+      return res.status(400).json({ error: { message: 'A referral discount has already been applied to this clinic.' } });
     }
-    // The sender's trial must still be live — an expired sender can no longer
-    // be logged in with, and their card is dead (free trial is suspended).
-    const okSender = await guardClinicSubscription(ref.referrer_clinic_id);
-    if (!okSender) {
-      await platConn.query("UPDATE referrals SET status='expired' WHERE id = ?", [ref.id]);
-      return res.status(403).json({ error: { message: 'This referral card has expired because the referring clinic\u2019s free trial ended.' } });
-    }
-    const clinicName = String(req.body.clinicName || req.body.clinic_name || '').trim() || 'Referred Clinic';
-    const ownerName = String(req.body.name || '').trim() || 'Owner';
-    const email = String(req.body.email || '').trim() || `ref_${code.replace(/[^A-Z0-9]/gi, '').toLowerCase()}@podvet.local`;
-    const phone = req.body.phone || null;
-    const username = `ref_${code.replace(/[^A-Z0-9]/gi, '').toLowerCase()}_${Date.now().toString(36)}`;
-    const password = req.body.password || 'Podvet@Referral1';
-
-    const hash = await bcrypt.hash(password, 10);
-    const [reg] = await platConn.query('INSERT INTO clinics (clinic_name, slug) VALUES (?, ?)', [clinicName, 'podvet']);
-    const clinicId = reg.insertId;
-    await createClinicDatabase(clinicId, clinicName);
-    // 3-month trial + 1 extra month from the referral = 4 months.
-    await startTrial(clinicId, REFERRAL_BONUS_DAYS);
-    const [r] = await platConn.query('INSERT INTO users (name, username, email, password, role, phone_number, clinic_id) VALUES (?, ?, ?, ?, "OWNER", ?, ?)',
-      [ownerName, username, email, hash, phone, clinicId]);
-    await platConn.query('UPDATE referrals SET status="redeemed", referred_clinic_id=?, redeemed_by=?, redeemed_at=IFNULL(redeemed_at, NOW()) WHERE id=?',
-      [clinicId, ownerName, ref.id]);
-    // Reward the sender too: one extra month on their subscription.
-    if (ref.referrer_clinic_id) await extendSubscription(ref.referrer_clinic_id, REFERRAL_BONUS_DAYS);
-
-    const [expiryRows] = await platConn.query('SELECT subscription_expiry FROM clinics WHERE id = ?', [clinicId]);
-    const trialEnd = expiryRows.length && expiryRows[0].subscription_expiry
-      ? new Date(expiryRows[0].subscription_expiry).toISOString().slice(0, 10)
-      : null;
-    const token = makeToken(r.insertId, clinicId);
-    res.json({
-      accessToken: token, refreshToken: token,
-      user: { id: r.insertId, name: ownerName, username, email, isPlatformAdmin: false },
-      activeClinic: { clinicId, clinicName, slug: 'podvet', role: 'OWNER', branchId: null, accessBlocked: null },
-      referredBy: { clinicName: ref.referrer_clinic_name, code: ref.code, offer: ref.offer },
-      message: `Referral accepted from ${ref.referrer_clinic_name}. 3-month free trial + 1 extra month — your trial ends on ${trialEnd}.`,
-    });
+    await platConn.query('UPDATE clinics SET referral_discount = ? WHERE id = ?', [REFERRAL_DISCOUNT, req.clinicId]);
+    await platConn.query(
+      'UPDATE referrals SET status="redeemed", referred_clinic_id=?, redeemed_by=?, discount_amount=?, redeemed_at=IFNULL(redeemed_at, NOW()) WHERE BINARY code = ? AND status="active"',
+      [req.clinicId, r.code, REFERRAL_DISCOUNT, r.code]);
+    // Reward the sender with extra time on their own subscription.
+    if (r.referrerId) await extendSubscription(r.referrerId, REFERRAL_BONUS_DAYS);
+    res.json({ success: true, discount: REFERRAL_DISCOUNT, currency: PLAN_CURRENCY, referredBy: { clinicName: r.clinicName, code: r.code } });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 
@@ -646,6 +655,11 @@ app.post('/api/referrals', authMiddleware, async (req, res) => {
   }
 });
 
+// Clinic signup. The referral code is OPTIONAL: leaving it blank signs up
+// normally with no discount, an unrecognised/used code is rejected with a
+// readable message and NO clinic is created, and a valid code stores
+// REFERRAL_DISCOUNT on the new clinic for its first invoice. Validation happens
+// before any INSERT so a bad code can never leave a half-created clinic behind.
 app.post('/api/clinics', async (req, res) => {
   try {
     const owner = req.body.owner || req.body;
@@ -654,11 +668,36 @@ app.post('/api/clinics', async (req, res) => {
     const username = owner.username || 'owner';
     const email = owner.email || 'owner@podvet.local';
     const password = owner.password || 'password123';
+    const rawCode = req.body.referralCode ?? req.body.referral_code ?? owner.referralCode ?? owner.referral_code ?? '';
+    const hasCode = String(rawCode || '').trim() !== '';
+
+    let referral = null;
+    if (hasCode) {
+      referral = await resolveReferral(rawCode);
+      if (!referral.valid) return res.status(400).json({ error: { message: referral.message, field: 'referralCode' } });
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const [reg] = await platConn.query('INSERT INTO clinics (clinic_name, slug) VALUES (?, ?)', [clinicName, 'podvet']);
     const clinicId = reg.insertId;
     await createClinicDatabase(clinicId, clinicName);
     await startTrial(clinicId, 0);
+    if (referral) {
+      await platConn.query('UPDATE clinics SET referral_discount = ? WHERE id = ?', [REFERRAL_DISCOUNT, clinicId]);
+      // The code was validated above, so burn it here. `AND status="active"`
+      // keeps this idempotent if two signups race for the same card.
+      const [burned] = await platConn.query(
+        'UPDATE referrals SET status="redeemed", referred_clinic_id=?, redeemed_by=?, discount_amount=?, redeemed_at=IFNULL(redeemed_at, NOW()) WHERE BINARY code = ? AND status="active"',
+        [clinicId, name, REFERRAL_DISCOUNT, referral.code]);
+      if (burned.affectedRows) {
+        if (referral.referrerId) await extendSubscription(referral.referrerId, REFERRAL_BONUS_DAYS);
+      } else {
+        // Lost the race: someone else redeemed the card mid-signup, so drop the
+        // discount rather than granting one that isn't backed by a redemption.
+        await platConn.query('UPDATE clinics SET referral_discount = 0 WHERE id = ?', [clinicId]);
+        referral = null;
+      }
+    }
     const [r] = await platConn.query('INSERT INTO users (name, username, email, password, role, phone_number, clinic_id) VALUES (?, ?, ?, ?, "OWNER", ?, ?)',
       [name, username, email, hash, owner.phoneNumber || owner.phone_number || null, clinicId]);
     const token = makeToken(r.insertId, clinicId);
@@ -666,6 +705,12 @@ app.post('/api/clinics', async (req, res) => {
       accessToken: token, refreshToken: token,
       user: { id: r.insertId, name, username, email, isPlatformAdmin: false },
       activeClinic: { clinicId, clinicName, slug: 'podvet', role: 'OWNER', branchId: null, accessBlocked: null },
+      ...(referral ? {
+        referralApplied: true,
+        referralDiscount: REFERRAL_DISCOUNT,
+        currency: PLAN_CURRENCY,
+        referredBy: { clinicName: referral.clinicName, code: referral.code },
+      } : { referralApplied: false }),
     });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
@@ -779,22 +824,75 @@ app.get('/api/public/branding', async (req, res) => {
 // NOTE: the frontend's PlanSelectScreen reads result.data.plan (array) and each
 // plan needs priceMonthly / trialDays / features to render. Server returns
 // { data: [...] } so subscriptionHandlers' `result.data` is the plans array.
-app.get('/api/plans', authMiddleware, (req, res) => res.json({ data: [
+// Two entries: the trial plan (0, TRIAL_DAYS) is what a new clinic picks to
+// start its one free month, and the paid plan carries the real MONTHLY_PRICE.
+// A referral discount applies to the first paid invoice.
+const PLANS = [
   {
     id: 1,
-    name: 'Free',
+    name: 'Free Trial',
     priceMonthly: 0,
     priceYearly: 0,
-    trialDays: 90,
+    currency: PLAN_CURRENCY,
+    trialDays: TRIAL_DAYS,
+    referralDiscount: REFERRAL_DISCOUNT,
     features: [
+      'Everything in Standard',
+      '1 month free, no card required',
       'Unlimited clients and pets',
       'Appointments & billing',
       'Products & inventory',
       'Reports and analytics',
     ],
   },
-] }));
-app.post('/api/clinics/me/subscription', authMiddleware, (req, res) => res.json({ success: true }));
+  {
+    id: 2,
+    name: 'Standard',
+    priceMonthly: MONTHLY_PRICE,
+    priceYearly: MONTHLY_PRICE * 12,
+    currency: PLAN_CURRENCY,
+    trialDays: TRIAL_DAYS,
+    referralDiscount: REFERRAL_DISCOUNT,
+    features: [
+      'Unlimited clients and pets',
+      'Appointments & billing',
+      'Products & inventory',
+      'Reports and analytics',
+      'Then Rs 3,000 per month',
+    ],
+  },
+];
+app.get('/api/plans', authMiddleware, (req, res) => res.json({ data: PLANS }));
+
+// The clinic's own subscription + what it will actually be charged. A referral
+// discount is applied to the FIRST invoice only, so `amountDue` reflects it
+// until `referral_discount_applied` is set by the billing step.
+app.post('/api/clinics/me/subscription', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await platConn.query(
+      'SELECT plan, status, subscription_start, subscription_expiry, referral_discount, referral_discount_applied FROM clinics WHERE id = ?',
+      [req.clinicId]);
+    const c = rows[0] || {};
+    const discount = Number(c.referral_discount || 0);
+    const discountApplied = !!c.referral_discount_applied;
+    const effective = discount > 0 && !discountApplied
+      ? Math.max(0, MONTHLY_PRICE - discount)
+      : MONTHLY_PRICE;
+    res.json({
+      success: true,
+      plan: c.plan || 'trial',
+      status: c.status || 'trial',
+      currency: PLAN_CURRENCY,
+      priceMonthly: MONTHLY_PRICE,
+      trialDays: TRIAL_DAYS,
+      subscriptionStart: c.subscription_start,
+      subscriptionExpiry: c.subscription_expiry,
+      referralDiscount: discount,
+      referralDiscountApplied: discountApplied,
+      amountDue: effective,
+    });
+  } catch (e) { res.status(500).json({ success: false, error: { message: e.message } }); }
+});
 
 // â”€â”€â”€ BRANCHES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/branches', authMiddleware, async (req, res) => {

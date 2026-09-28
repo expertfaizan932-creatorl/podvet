@@ -112,35 +112,22 @@ module.exports = function setupAuthHandlers(store) {
       saasClient.saveSession(session);
       const localUser = toLocalUser(session);
       store.set('user', localUser);
-      return { success: true, message: 'Clinic created successfully', user: localUser };
+      return {
+        success: true,
+        message: 'Clinic created successfully',
+        user: localUser,
+        // Referral result from POST /api/clinics, so the signup screen can
+        // confirm the discount that was actually stored.
+        referralApplied: !!data.referralApplied,
+        referralDiscount: data.referralDiscount || 0,
+        currency: data.currency || 'PKR',
+        referredBy: data.referredBy || null,
+      };
     } catch (err) {
       return { success: false, message: err.message || 'Signup failed', code: err.code, details: err.details };
     }
   });
 
-  // Referral login: the receiving clinic enters the referral code printed on a
-  // shared referral card. The backend validates the code, self-provisions a
-  // brand-new clinic + OWNER account, and signs them in — same session shape
-  // as login/clinic-signup so the app drops them straight onto their dashboard.
-  ipcMain.handle('referral-login', async (_event, payload) => {
-    try {
-      const data = await saasClient.referralLogin(payload);
-      saasClient.saveTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-      const { user, activeClinic } = data;
-      const session = { user, activeClinic };
-      saasClient.saveSession(session);
-      const localUser = toLocalUser(session);
-      store.set('user', localUser);
-      return {
-        success: true,
-        message: data.message || 'Referral accepted. Welcome!',
-        referredBy: data.referredBy || null,
-        user: localUser,
-      };
-    } catch (err) {
-      return { success: false, message: err.message || 'Referral login failed', code: err.code };
-    }
-  });
 
   // Mints a referral code for the current clinic (used when generating a card
   // to share with another clinic) and returns it for printing on the card.
