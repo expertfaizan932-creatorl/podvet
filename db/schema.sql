@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS clinic_settings (
     logo_url VARCHAR(500),
     address TEXT,
     phone VARCHAR(50),
+    group_products_on_invoice TINYINT(1) NOT NULL DEFAULT 0,
+    bank_name VARCHAR(255) DEFAULT NULL,
+    bank_account_number VARCHAR(100) DEFAULT NULL,
+    pos_show_logo TINYINT(1) NOT NULL DEFAULT 1,
+    pos_show_clinic_phone TINYINT(1) NOT NULL DEFAULT 0,
+    pos_show_client_phone TINYINT(1) NOT NULL DEFAULT 0,
+    pos_show_vet_name TINYINT(1) NOT NULL DEFAULT 0,
+    pos_show_address TINYINT(1) NOT NULL DEFAULT 0,
+    pos_show_bank_details TINYINT(1) NOT NULL DEFAULT 0,
+    pos_header_show_clinic_name TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

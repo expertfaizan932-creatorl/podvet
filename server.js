@@ -109,9 +109,12 @@ async function openClinicConn(clinicId) {
   const conn = await mysql.createConnection({ ...DB_OPTS, database: `${CLINIC_PREFIX}${clinicId}` });
   conn.on('error', () => {});
   // First connection to this clinic DB is also the natural moment to make sure
-  // it has no seed duplicates. Runs once per process, before the connection is
-  // handed back, so a request can never read a half-repaired table.
+  // it has no seed duplicates and the full clinic_settings column set. Runs
+  // once per process, before the connection is handed back, so a request can
+  // never read or write a half-repaired table.
   await dedupeClinicSeedRows(conn, clinicId);
+  try { await ensureClinicSettingsColumns(conn); }
+  catch (e) { console.error('ensureClinicSettingsColumns (clinic) failed:', e.message); }
   return conn;
 }
 
@@ -391,11 +394,61 @@ async function dedupeClinicSeedRows(conn, clinicId) {
   }
 }
 
+// Idempotent migration for clinic_settings. PATCH /api/clinics/me is the single
+// writer for every clinic-wide setting (clinic name, brand colour, logo,
+// address, phone, invoice grouping, bank details and the POS-slip toggles), but
+// the shipped schema only ever declared the first five of those columns. Any
+// save that included one of the others built an UPDATE naming a column MySQL
+// did not know -> ER_BAD_FIELD_ERROR -> HTTP 500, and the Settings screen
+// reported it as "Failed to save some branding settings" (both of its
+// parallel PATCHes send at least one of the missing columns, so it failed
+// every single time, not just for some clinics).
+//
+// schema.sql is fixed too, but its CREATE TABLE IF NOT EXISTS is a no-op
+// against an already-deployed table -- same reason ensureSoapNoteColumns
+// exists -- so every already-created database is repaired here on startup.
+const CLINIC_SETTINGS_COLS = [
+  ['group_products_on_invoice', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['bank_name', 'VARCHAR(255) DEFAULT NULL'],
+  ['bank_account_number', 'VARCHAR(100) DEFAULT NULL'],
+  ['pos_show_logo', 'TINYINT(1) NOT NULL DEFAULT 1'],
+  ['pos_show_clinic_phone', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['pos_show_client_phone', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['pos_show_vet_name', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['pos_show_address', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['pos_show_bank_details', 'TINYINT(1) NOT NULL DEFAULT 0'],
+  ['pos_header_show_clinic_name', 'TINYINT(1) NOT NULL DEFAULT 1'],
+];
+
+// `conn` must already be connected to the target database; TABLE_SCHEMA is
+// read as DATABASE() so the same call works for the platform connection (which
+// doubles as clinic 1's database) and for a per-clinic connection.
+async function ensureClinicSettingsColumns(conn) {
+  const [[tbl]] = await conn.query(
+    'SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+    ['clinic_settings']);
+  if (!tbl.n) return;
+  for (const [name, ddl] of CLINIC_SETTINGS_COLS) {
+    const [[has]] = await conn.query(
+      'SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',
+      ['clinic_settings', name]);
+    if (!has.n) {
+      try { await conn.query(`ALTER TABLE clinic_settings ADD COLUMN \`${name}\` ${ddl}`); }
+      catch (err) { console.error('ensureClinicSettingsColumns skip', name, err.message); }
+    }
+  }
+}
+
 async function ensurePlatformSchema() {
   // Soap-note columns must be added FIRST and independently: the ALTER block
   // below throws on pre-existing index names (uclinics/referrals/employees),
   // which would abort this whole function before reaching the column migration.
   try { await ensureSoapNoteColumns(); } catch (e) { console.error('ensureSoapNoteColumns failed:', e.message); }
+  // Same treatment for clinic_settings, and it has to run on the platform DB
+  // anyway: createClinicDatabase clones each table with SHOW CREATE TABLE, so
+  // repairing clinic 1's table here is what gives every newly created clinic
+  // database the columns too.
+  try { await ensureClinicSettingsColumns(platConn); } catch (e) { console.error('ensureClinicSettingsColumns failed:', e.message); }
   // Collapse seed duplicates before anything can read them, and add the unique
   // keys that stop new ones. Wrapped per-table already; this outer guard keeps
   // one unexpected failure from skipping the rest of the platform schema.
