@@ -108,6 +108,10 @@ async function ensurePlat() {
 async function openClinicConn(clinicId) {
   const conn = await mysql.createConnection({ ...DB_OPTS, database: `${CLINIC_PREFIX}${clinicId}` });
   conn.on('error', () => {});
+  // First connection to this clinic DB is also the natural moment to make sure
+  // it has no seed duplicates. Runs once per process, before the connection is
+  // handed back, so a request can never read a half-repaired table.
+  await dedupeClinicSeedRows(conn, clinicId);
   return conn;
 }
 
@@ -172,11 +176,230 @@ const db = new Proxy({}, {
   },
 });
 
+// -- Seeded-table duplicate collapse -----------------------------------------
+//
+// db/schema.sql seeds expense_categories / branches / services, and
+// setup-server.sh re-imports it on EVERY deploy. Those three seeds used to be
+// bare INSERT ... VALUES with no unique key to collide against, so each deploy
+// appended another copy of every default row. After 30 deploys clinic 1 --
+// which reads the platform DB directly, see getClinicConn -- had 164 expense
+// categories instead of 6, 304 services instead of 10 and 30 "Main Branch"
+// rows instead of 1, all of which surface as repeated entries in the
+// Add-Expense category dropdown and the branch/service pickers.
+//
+// This collapses whatever duplicates already exist and then adds the unique key
+// that stops them coming back, so it is a no-op on a clean install and safe to
+// run on every startup. The key is only added once the table is actually clean,
+// because MySQL rejects the ALTER otherwise.
+//
+// The grouping is done in JS rather than SQL on purpose: the obvious
+// "DELETE t FROM t JOIN (SELECT ... FROM t)" form is a self-referencing
+// subquery, which MySQL and MariaDB disagree about (ER_UPDATE_TABLE_USED), and
+// a fixed backup column list cannot be right for all three tables (expense
+// _categories has no `category`, branches has no `description`). Both problems
+// are avoided by reading the rows, grouping them here, and then issuing plain
+// id-based statements.
+//
+// Every removed row is copied into <table>_dedupe_backup first, so a bad
+// collapse is recoverable with a plain SELECT.
+const DEDUPE_PLANS = [
+  {
+    table: 'expense_categories',
+    keyCols: ['name'],
+    index: 'uq_expense_categories_name',
+    // expenses.category_id is the one real FK into this table and it carries
+    // ON DELETE SET NULL, so deleting the duplicate rows before repointing
+    // would silently blank the category off every expense.
+    children: [{ table: 'expenses', col: 'category_id' }],
+  },
+  {
+    table: 'branches',
+    keyCols: ['branch_name'],
+    index: 'uq_branches_branch_name',
+    // branch_id is a plain int in these tables (no FK constraint), so they have
+    // to be repointed explicitly or the collapsed branch would leave them
+    // referencing a row that no longer exists.
+    children: [
+      { table: 'appointments', col: 'branch_id' },
+      { table: 'forms', col: 'branch_id' },
+      { table: 'boarding_stays', col: 'branch_id' },
+      { table: 'cage_types', col: 'branch_id' },
+    ],
+  },
+  {
+    table: 'services',
+    // Composite key, not name alone: the same service name may legitimately
+    // exist under two categories, so "Consultation/General" and
+    // "Consultation/Medical" are not duplicates of each other.
+    keyCols: ['name', 'category'],
+    index: 'uq_services_name_category',
+    children: [],
+  },
+];
+
+// MySQL has no bound-parameter limit, but very long IN lists blow past
+// max_allowed_packet, so every id list goes out in chunks.
+const ID_CHUNK = 200;
+const chunks = (arr, size = ID_CHUNK) => {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
+
+async function tableExists(conn, table) {
+  const [[r]] = await conn.query(
+    `SELECT COUNT(*) AS n FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [table],
+  );
+  return r.n > 0;
+}
+
+async function columnNames(conn, table) {
+  const [rows] = await conn.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`, [table],
+  );
+  return rows.map((r) => r.COLUMN_NAME);
+}
+
+async function dedupeSeedRows(conn, label) {
+  const log = (msg) => console.log(`[dedupe:${label}] ${msg}`);
+
+  for (const plan of DEDUPE_PLANS) {
+    try {
+      const { table, keyCols, index } = plan;
+      if (!(await tableExists(conn, table))) continue;
+
+      const cols = await columnNames(conn, table);
+      const missing = keyCols.filter((c) => !cols.includes(c));
+      if (missing.length) {
+        log(`${table}: no ${missing.map((c) => `\`${c}\``).join('/')} column, skipped`);
+        continue;
+      }
+
+      // Group in JS. The key is case/whitespace-insensitive so "Rent", "rent"
+      // and " Rent " collapse together. The unique key added below is on the
+      // raw column, so it is only the case-insensitive half of that guarantee;
+      // the whitespace half is enforced by the API guard, which trims the name
+      // before it ever reaches an INSERT. Legacy padded rows are still folded
+      // in here, which is why the grouping trims at all.
+      const [rows] = await conn.query(
+        `SELECT id, ${keyCols.map((c) => `\`${c}\``).join(', ')} FROM \`${table}\` ORDER BY id`,
+      );
+      const groups = new Map();
+      for (const r of rows) {
+        const k = keyCols.map((c) => String(r[c] ?? '').trim().toLowerCase()).join('\u0000');
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r.id);
+      }
+      // The survivor of each group is the lowest id: the row the very first
+      // deploy inserted, and so the one any pre-existing edit was most likely
+      // made against. Every other id in the group is a redundant later copy.
+      const collapsible = [...groups.values()].filter((ids) => ids.length > 1);
+
+      if (!collapsible.length) {
+        log(`${table}: clean (${rows.length} row(s))`);
+      } else {
+        // Backup first: this is the only way back if the keep-rule turns out to
+        // have picked the wrong row. The backup table mirrors the source, plus
+        // provenance, so it works for all three shapes.
+        const backup = `${table}_dedupe_backup`;
+        if (!(await tableExists(conn, backup))) {
+          await conn.query(`CREATE TABLE \`${backup}\` LIKE \`${table}\``);
+          await conn.query(
+            `ALTER TABLE \`${backup}\`
+               ADD COLUMN removed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+               ADD COLUMN src_db VARCHAR(64)`,
+          );
+        }
+        const dupIds = collapsible.flatMap((ids) => ids.slice(1));
+        for (const ids of chunks(dupIds)) {
+          await conn.query(
+            `INSERT INTO \`${backup}\` (src_db, ${cols.map((c) => `\`${c}\``).join(', ')})
+               SELECT DATABASE(), ${cols.map((c) => `\`${c}\``).join(', ')}
+               FROM \`${table}\` WHERE id IN (${ids.map(() => '?').join(',')})`,
+            ids,
+          );
+        }
+
+        for (const child of plan.children) {
+          if (!(await tableExists(conn, child.table))) continue;
+          const childCols = await columnNames(conn, child.table);
+          if (!childCols.includes(child.col)) continue;
+          let moved = 0;
+          for (const ids of collapsible) {
+            const [survivor, ...dups] = ids;
+            for (const part of chunks(dups)) {
+              const [r] = await conn.query(
+                `UPDATE \`${child.table}\` SET \`${child.col}\` = ?
+                   WHERE \`${child.col}\` IN (${part.map(() => '?').join(',')})`,
+                [survivor, ...part],
+              );
+              moved += r.affectedRows || 0;
+            }
+          }
+          if (moved) log(`${child.table}.${child.col}: repointed ${moved} row(s) at the surviving ${table}`);
+        }
+
+        let removed = 0;
+        for (const ids of chunks(dupIds)) {
+          const [r] = await conn.query(
+            `DELETE FROM \`${table}\` WHERE id IN (${ids.map(() => '?').join(',')})`, ids,
+          );
+          removed += r.affectedRows || 0;
+        }
+        log(`${table}: removed ${removed} duplicate row(s) across ${collapsible.length} group(s)`);
+      }
+
+      const [idx] = await conn.query(
+        `SELECT COUNT(*) AS n FROM information_schema.STATISTICS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+        [table, index],
+      );
+      if (!idx[0].n) {
+        const [[left]] = await conn.query(
+          `SELECT COUNT(*) AS n FROM (
+             SELECT 1 FROM \`${table}\` GROUP BY ${keyCols.map((c) => `LOWER(TRIM(COALESCE(\`${c}\`, '')))`).join(', ')}
+             HAVING COUNT(*) > 1) d`,
+        );
+        if (left.n) {
+          log(`${table}: duplicates remain, skipping ${index}`);
+        } else {
+          await conn.query(
+            `ALTER TABLE \`${table}\` ADD UNIQUE KEY \`${index}\` (${keyCols.map((c) => `\`${c}\``).join(', ')})`,
+          );
+          log(`${table}: added ${index}`);
+        }
+      }
+    } catch (err) {
+      // A repair must never take the API down: log it and keep serving.
+      console.error(`[dedupe:${label}] ${plan.table} failed:`, err.message);
+    }
+  }
+}
+
+// Clinic databases are created by cloning table definitions only
+// (createClinicDatabase), so they start empty and were never hit by the
+// schema.sql re-import. They carry the same three tables and the same unique
+// keys though, so running the identical repair keeps the guarantee uniform
+// instead of "protected on the platform DB, unprotected on clinic DBs".
+async function dedupeClinicSeedRows(conn, clinicId) {
+  try {
+    await dedupeSeedRows(conn, `clinic${clinicId}`);
+  } catch (e) {
+    console.error('dedupeClinicSeedRows failed:', e.message);
+  }
+}
+
 async function ensurePlatformSchema() {
   // Soap-note columns must be added FIRST and independently: the ALTER block
   // below throws on pre-existing index names (uclinics/referrals/employees),
   // which would abort this whole function before reaching the column migration.
   try { await ensureSoapNoteColumns(); } catch (e) { console.error('ensureSoapNoteColumns failed:', e.message); }
+  // Collapse seed duplicates before anything can read them, and add the unique
+  // keys that stop new ones. Wrapped per-table already; this outer guard keeps
+  // one unexpected failure from skipping the rest of the platform schema.
+  try { await dedupeSeedRows(platConn, DB_NAME); } catch (e) { console.error('dedupeSeedRows failed:', e.message); }
   await platConn.query(`CREATE TABLE IF NOT EXISTS clinics (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     clinic_name VARCHAR(255) NOT NULL,
@@ -1923,17 +2146,64 @@ app.get('/api/expenses/list', authMiddleware, async (req, res) => {
   try { const [rows] = await db.query('SELECT e.*, ec.name as category_name FROM expenses e LEFT JOIN expense_categories ec ON e.category_id=ec.id ORDER BY e.date DESC'); res.json({ data: toCamel(rows), total: rows.length }); }
   catch { res.json({ data: [], total: 0 }); }
 });
+// Names are compared case/whitespace-insensitively everywhere below so "Rent",
+// "rent" and " Rent " can never become three separate dropdown entries. The
+// same expression is what dedupeSeedRows groups on and what the
+// uq_expense_categories_name unique key enforces.
+const CATEGORY_NAME_MATCH = 'LOWER(TRIM(name)) = LOWER(TRIM(?))';
+
 app.get('/api/expense-categories', authMiddleware, async (req, res) => {
-  try { const [rows] = await db.query('SELECT * FROM expense_categories ORDER BY name'); res.json({ data: toCamel(rows) }); }
+  try {
+    // Belt-and-braces: dedupeSeedRows has already collapsed these, but a clinic
+    // DB whose repair has not run yet must not be able to show a doubled
+    // dropdown. Grouping on the normalised name and keeping MIN(id) returns the
+    // same survivor the migration would have kept, so ids stay stable.
+    const [rows] = await db.query(
+      `SELECT * FROM expense_categories WHERE id IN (SELECT MIN(id) FROM expense_categories GROUP BY LOWER(TRIM(name))) ORDER BY name`,
+    );
+    res.json({ data: toCamel(rows) });
+  }
   catch { res.json({ data: [] }); }
 });
 app.post('/api/expense-categories', authMiddleware, async (req, res) => {
-  try { const { name, description } = req.body; const [r] = await db.query('INSERT INTO expense_categories (name,description) VALUES (?,?)', [name, description||'']); res.json({ data: { id: r.insertId, name } }); }
-  catch (e) { res.status(500).json({ error: { message: e.message } }); }
+  try {
+    const name = String(req.body?.name ?? '').trim();
+    if (!name) return res.status(400).json({ error: { message: 'Category name is required' } });
+    // Returning the existing row (rather than a 409) keeps the UI's
+    // "add then select" flow working when a category is typed that already
+    // exists -- the caller gets a usable id instead of an error to handle.
+    const [existing] = await db.query(`SELECT * FROM expense_categories WHERE ${CATEGORY_NAME_MATCH} ORDER BY id LIMIT 1`, [name]);
+    if (existing.length) {
+      return res.json({ data: { id: existing[0].id, name: existing[0].name }, existing: true });
+    }
+    const [r] = await db.query('INSERT INTO expense_categories (name,description) VALUES (?,?)', [name, req.body?.description || '']);
+    res.json({ data: { id: r.insertId, name } });
+  }
+  catch (e) {
+    // Two concurrent adds can still race past the SELECT above; the unique key
+    // catches the loser and we answer with the row that won.
+    if (e.code === 'ER_DUP_ENTRY') {
+      const [existing] = await db.query(`SELECT * FROM expense_categories WHERE ${CATEGORY_NAME_MATCH} ORDER BY id LIMIT 1`, [String(req.body?.name ?? '').trim()]);
+      if (existing.length) return res.json({ data: { id: existing[0].id, name: existing[0].name }, existing: true });
+    }
+    res.status(500).json({ error: { message: e.message } });
+  }
 });
 app.patch('/api/expense-categories/:id', authMiddleware, async (req, res) => {
-  try { const { name, description } = req.body; await db.query('UPDATE expense_categories SET name=?,description=? WHERE id=?', [name, description||'', req.params.id]); res.json({ success: true }); }
-  catch { res.json({ success: true }); }
+  try {
+    const name = String(req.body?.name ?? '').trim();
+    if (!name) return res.status(400).json({ error: { message: 'Category name is required' } });
+    // A rename must not collide with a different category either, otherwise the
+    // unique key rejects the UPDATE with an opaque ER_DUP_ENTRY.
+    const [clash] = await db.query(
+      `SELECT id FROM expense_categories WHERE ${CATEGORY_NAME_MATCH} AND id <> ? LIMIT 1`,
+      [name, req.params.id],
+    );
+    if (clash.length) return res.status(409).json({ error: { message: `A category named "${name}" already exists` } });
+    await db.query('UPDATE expense_categories SET name=?,description=? WHERE id=?', [name, req.body?.description || '', req.params.id]);
+    res.json({ success: true });
+  }
+  catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.delete('/api/expense-categories/:id', authMiddleware, async (req, res) => {
   try { await db.query('DELETE FROM expense_categories WHERE id=?', [req.params.id]); res.json({ success: true }); }
@@ -2737,7 +3007,9 @@ function startServer(port) {
   });
 }
 
-module.exports = { app, startServer };
+// dedupeSeedRows is exported so the migration can be exercised directly
+// (against a throwaway copy of the data) without starting the whole server.
+module.exports = { app, startServer, dedupeSeedRows, DEDUPE_PLANS };
 
 // Auto-start when run directly (not required as module)
 if (require.main === module) {

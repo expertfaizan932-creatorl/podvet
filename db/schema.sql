@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS branches (
     is_active TINYINT(1) DEFAULT 1,
     address TEXT,
     phone VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_branches_branch_name (branch_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS clients (
@@ -95,7 +96,11 @@ CREATE TABLE IF NOT EXISTS services (
     base_rate DECIMAL(12,2) DEFAULT 0,
     purchase_price DECIMAL(12,2) DEFAULT 0,
     is_grooming TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Name+category, not name alone: a clinic may legitimately offer the same
+    -- service name under two categories (e.g. "Bathing" under Grooming and
+    -- under Hygiene). This pair is what the seed rows below collide on.
+    UNIQUE KEY uq_services_name_category (name, category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS products (
@@ -146,10 +151,15 @@ CREATE TABLE IF NOT EXISTS coupons (
     is_active TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- uq_expense_categories_name: setup-server.sh re-imports this file on EVERY
+-- deploy, and this table is one of the seeded ones below. Without a unique key
+-- each deploy appended a fresh copy of all six defaults (30 deploys had
+-- produced 164 rows, all six names repeated 30x in the Add-Expense dropdown).
 CREATE TABLE IF NOT EXISTS expense_categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    description TEXT
+    description TEXT,
+    UNIQUE KEY uq_expense_categories_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS expenses (
@@ -545,24 +555,87 @@ INSERT INTO users (name, username, email, password, role, clinic_id) VALUES
 ('Admin', 'admin', 'admin@podvet.local', '$2b$10$yWrBrWrfu9d0PrtIvh9rT.KBG8CPmoPOQyb.IxYYlIX7vtgcR/iuG', 'OWNER', 1)
 ON DUPLICATE KEY UPDATE username = VALUES(username);
 
-INSERT INTO branches (branch_name, is_active) VALUES ('Main Branch', 1);
+INSERT INTO branches (branch_name, is_active)
+SELECT 'Main Branch', 1
+WHERE NOT EXISTS (SELECT 1 FROM branches WHERE branch_name = 'Main Branch');
 
-INSERT INTO expense_categories (name, description) VALUES
-('Rent', 'Office/clinic rent'),
-('Utilities', 'Electricity, water, internet'),
-('Supplies', 'Medical and office supplies'),
-('Salary', 'Employee salaries'),
-('Maintenance', 'Equipment and facility maintenance'),
-('Other', 'Miscellaneous expenses');
+-- Every seed below is an anti-join (insert only when the row is missing), not
+-- a bare VALUES list and not ON DUPLICATE KEY: setup-server.sh re-imports this
+-- file on EVERY deploy, and a bare VALUES list appended a fresh copy of every
+-- default row each time. The unique keys the CREATE TABLE statements declare
+-- are only added to pre-existing tables by the guarded ALTERs at the end of
+-- this file, so an install whose key is not in place yet must still not
+-- accumulate duplicates.
 
-INSERT INTO services (name, category, base_rate) VALUES
-('Consultation', 'General', 500),
-('Vaccination', 'Medical', 800),
-('Surgery', 'Medical', 5000),
-('Grooming - Basic', 'Grooming', 300),
-('Grooming - Premium', 'Grooming', 600),
-('Deworming', 'Medical', 400),
-('Lab Test', 'Laboratory', 1200),
-('X-Ray', 'Laboratory', 2500),
-('Boarding - Standard', 'Boarding', 500),
-('Boarding - Premium', 'Boarding', 800);
+INSERT INTO expense_categories (name, description)
+SELECT s.name, s.description
+FROM (
+    SELECT 'Rent' AS name, 'Office/clinic rent' AS description
+    UNION ALL SELECT 'Utilities', 'Electricity, water, internet'
+    UNION ALL SELECT 'Supplies', 'Medical and office supplies'
+    UNION ALL SELECT 'Salary', 'Employee salaries'
+    UNION ALL SELECT 'Maintenance', 'Equipment and facility maintenance'
+    UNION ALL SELECT 'Other', 'Miscellaneous expenses'
+) s
+LEFT JOIN expense_categories ec ON ec.name = s.name
+WHERE ec.id IS NULL;
+
+INSERT INTO services (name, category, base_rate)
+SELECT s.name, s.category, s.base_rate
+FROM (
+    SELECT 'Consultation' AS name, 'General' AS category, 500 AS base_rate
+    UNION ALL SELECT 'Vaccination', 'Medical', 800
+    UNION ALL SELECT 'Surgery', 'Medical', 5000
+    UNION ALL SELECT 'Grooming - Basic', 'Grooming', 300
+    UNION ALL SELECT 'Grooming - Premium', 'Grooming', 600
+    UNION ALL SELECT 'Deworming', 'Medical', 400
+    UNION ALL SELECT 'Lab Test', 'Laboratory', 1200
+    UNION ALL SELECT 'X-Ray', 'Laboratory', 2500
+    UNION ALL SELECT 'Boarding - Standard', 'Boarding', 500
+    UNION ALL SELECT 'Boarding - Premium', 'Boarding', 800
+) s
+LEFT JOIN services sv ON sv.name = s.name AND sv.category = s.category
+WHERE sv.id IS NULL;
+
+-- Unique keys on pre-existing tables (idempotent).
+--
+-- CREATE TABLE IF NOT EXISTS above is a no-op on a table that already exists,
+-- so these keys have to be added separately. Each ALTER is skipped while the
+-- table still holds duplicates, because MySQL rejects it in that state:
+-- server.js's startup migration (dedupeSeedRows) collapses the duplicates
+-- first and adds the key on its next pass, and the next deploy picks it up
+-- here. The duplicate check is also what stops a schema import from aborting
+-- the deploy, since setup-server.sh runs under `set -e`.
+
+SET @ddl := IF(
+  (SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'expense_categories'
+       AND INDEX_NAME = 'uq_expense_categories_name') > 0,
+  'DO 0',
+  IF((SELECT COUNT(*) FROM (SELECT name FROM expense_categories
+        GROUP BY name HAVING COUNT(*) > 1) d) > 0,
+     'DO 0',
+     'ALTER TABLE expense_categories ADD UNIQUE KEY uq_expense_categories_name (name)'));
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @ddl := IF(
+  (SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'branches'
+       AND INDEX_NAME = 'uq_branches_branch_name') > 0,
+  'DO 0',
+  IF((SELECT COUNT(*) FROM (SELECT branch_name FROM branches
+        GROUP BY branch_name HAVING COUNT(*) > 1) d) > 0,
+     'DO 0',
+     'ALTER TABLE branches ADD UNIQUE KEY uq_branches_branch_name (branch_name)'));
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @ddl := IF(
+  (SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'services'
+       AND INDEX_NAME = 'uq_services_name_category') > 0,
+  'DO 0',
+  IF((SELECT COUNT(*) FROM (SELECT name, category FROM services
+        GROUP BY name, category HAVING COUNT(*) > 1) d) > 0,
+     'DO 0',
+     'ALTER TABLE services ADD UNIQUE KEY uq_services_name_category (name, category)'));
+PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
