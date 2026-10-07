@@ -86,6 +86,11 @@ module.exports = function setupVendorsHandlers() {
         vendorName: vendor.vendor_name,
         contactPerson: vendor.contact_person || undefined,
         contactNumber: vendor.contact_number || undefined,
+        email: vendor.email || undefined,
+        address: vendor.address || undefined,
+        city: vendor.city || undefined,
+        website: vendor.website || undefined,
+        category: vendor.category || undefined,
         notes: vendor.notes || undefined,
         isActive: !!vendor.is_active,
       });
@@ -102,6 +107,11 @@ module.exports = function setupVendorsHandlers() {
         vendorName: vendor.vendor_name,
         contactPerson: vendor.contact_person || undefined,
         contactNumber: vendor.contact_number || undefined,
+        email: vendor.email || undefined,
+        address: vendor.address || undefined,
+        city: vendor.city || undefined,
+        website: vendor.website || undefined,
+        category: vendor.category || undefined,
         notes: vendor.notes || undefined,
         isActive: !!vendor.is_active,
       });

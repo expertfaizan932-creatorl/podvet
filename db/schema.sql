@@ -162,6 +162,11 @@ CREATE TABLE IF NOT EXISTS vendors (
     vendor_name VARCHAR(255) NOT NULL,
     contact_person VARCHAR(255),
     contact_number VARCHAR(50),
+    email VARCHAR(255),
+    address VARCHAR(500),
+    city VARCHAR(100),
+    website VARCHAR(255),
+    category VARCHAR(100),
     notes TEXT,
     is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

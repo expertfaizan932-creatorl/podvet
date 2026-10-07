@@ -589,6 +589,23 @@ async function ensureFeatureSchema(conn) {
       FOREIGN KEY (purchase_id) REFERENCES vendor_purchases(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   } catch (err) { console.error('ensureFeatureSchema vendor purchases failed:', err.message); }
+  // Vendor detail fields — added after launch, so ALTER existing installs one
+  // column at a time (same guard as employees.social_links above).
+  const vendorCols = [
+    ['email', 'VARCHAR(255)'],
+    ['address', 'VARCHAR(500)'],
+    ['city', 'VARCHAR(100)'],
+    ['website', 'VARCHAR(255)'],
+    ['category', 'VARCHAR(100)'],
+  ];
+  for (const [colName, colType] of vendorCols) {
+    try {
+      const [[c]] = await conn.query(
+        'SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',
+        ['vendors', colName]);
+      if (!c.n) await conn.query(`ALTER TABLE vendors ADD COLUMN ${colName} ${colType} DEFAULT NULL`);
+    } catch (err) { console.error(`ensureFeatureSchema vendors.${colName} skip`, err.message); }
+  }
 }
 
 async function ensurePlatformSchema() {
@@ -2414,15 +2431,15 @@ app.get('/api/vendors/consignment-period-summary', authMiddleware, async (req, r
 app.post('/api/vendors', authMiddleware, async (req, res) => {
   try {
     const d = req.body;
-    const [r] = await db.query('INSERT INTO vendors (vendor_name,contact_person,contact_number,notes,is_active) VALUES (?,?,?,?,?)',
-      [d.vendorName || d.name || '', d.contactPerson || null, d.contactNumber || d.contact || null, d.notes || null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0)]);
+    const [r] = await db.query('INSERT INTO vendors (vendor_name,contact_person,contact_number,email,address,city,website,category,notes,is_active) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [d.vendorName || d.name || '', d.contactPerson || null, d.contactNumber || d.contact || null, d.email || null, d.address || null, d.city || null, d.website || null, d.category || null, d.notes || null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0)]);
     res.json({ data: { id: r.insertId, ...d } });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/vendors/:id', authMiddleware, async (req, res) => {
   try { const d = req.body;
-    await db.query('UPDATE vendors SET vendor_name=?,contact_person=?,contact_number=?,notes=?,is_active=? WHERE id=?',
-      [d.vendorName || d.name || '', d.contactPerson ?? null, d.contactNumber ?? null, d.notes ?? null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0), req.params.id]);
+    await db.query('UPDATE vendors SET vendor_name=?,contact_person=?,contact_number=?,email=?,address=?,city=?,website=?,category=?,notes=?,is_active=? WHERE id=?',
+      [d.vendorName || d.name || '', d.contactPerson ?? null, d.contactNumber ?? null, d.email ?? null, d.address ?? null, d.city ?? null, d.website ?? null, d.category ?? null, d.notes ?? null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0), req.params.id]);
     res.json({ success: true }); } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.delete('/api/vendors/:id', authMiddleware, async (req, res) => {
