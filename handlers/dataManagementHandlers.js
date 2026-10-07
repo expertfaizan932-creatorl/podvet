@@ -120,27 +120,55 @@ module.exports = function setupDataManagementHandlers() {
         }));
       }
 
-      const exportDir = path.join(os.homedir(), "Desktop", "PodVet-Backup");
-      if (!fs.existsSync(exportDir)) {
-        fs.mkdirSync(exportDir, { recursive: true });
-      }
-
       const workbook = XLSX.utils.book_new();
+      const exportedTables = [];
       Object.keys(exportData).forEach((tableName) => {
         if (exportData[tableName].length > 0) {
           const worksheet = XLSX.utils.json_to_sheet(exportData[tableName]);
           XLSX.utils.book_append_sheet(workbook, worksheet, tableName);
+          exportedTables.push(tableName);
         }
       });
+      // A workbook with zero sheets is not a valid .xlsx and XLSX.write throws
+      // on it, which would surface as a failed export even though there was
+      // simply nothing in the selected tables.
+      if (exportedTables.length === 0) {
+        XLSX.utils.book_append_sheet(
+          workbook,
+          XLSX.utils.aoa_to_sheet([["No data found for the selected options"]]),
+          "Empty",
+        );
+        exportedTables.push("Empty");
+      }
 
-      const filePath = path.join(exportDir, `data-export-${Date.now()}.xlsx`);
-      XLSX.writeFile(workbook, filePath);
+      const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+      const stamp = new Date().toISOString().slice(0, 10);
+      const fileName = `podvet-data-export-${stamp}.xlsx`;
+
+      // Built in memory and handed back as base64 so the browser edition can
+      // hand the user a real download. The old version only ever wrote the
+      // workbook to ~/Desktop/PodVet-Backup on whatever machine ran the
+      // handler — in the web build that is the *server's* /root/Desktop, which
+      // the browser can neither see nor download, so the button reported
+      // success and delivered nothing. Electron still gets its Desktop copy.
+      const isElectron = !!process.versions.electron;
+      let filePath = null;
+      if (isElectron) {
+        const exportDir = path.join(os.homedir(), "Desktop", "PodVet-Backup");
+        if (!fs.existsSync(exportDir)) {
+          fs.mkdirSync(exportDir, { recursive: true });
+        }
+        filePath = path.join(exportDir, fileName);
+        fs.writeFileSync(filePath, buffer);
+      }
 
       return {
         success: true,
         message: "Data exported successfully to Excel",
+        fileName,
+        base64: buffer.toString("base64"),
         filePath,
-        exportedTables: Object.keys(exportData),
+        exportedTables,
       };
     } catch (err) {
       console.error("[export-data]", err);

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First 30 Days with a Puppy: A Vet's Guide | PodVet Blog</title>
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: #1e1b26; overflow-x: hidden; }
+        .hero-gradient { background: radial-gradient(circle at 50% 30%, rgb(var(--brand-700)) 0%, rgb(var(--brand-900)) 60%, rgb(var(--brand-dark)) 100%); }
+        .bg-particles {
+            background-image: radial-gradient(rgba(255,255,255,.25) 1px, transparent 1px),
+                              radial-gradient(rgba(255,255,255,.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+        .hero-photo { background-image: linear-gradient(180deg, rgba(13,46,80,.92), rgba(27,110,161,.78)), url('/img/blog-corgi.jpg'); background-size: cover; background-position: center; }
+        .prose-note p { margin-bottom: 1rem; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+    <!-- NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Solutions <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-48 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/solutions/veterinary-ai" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Veterinary AI</a>
+                                <a href="/solutions/solo-practitioners" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Solo Practitioners</a>
+                                <a href="/solutions/midsized-clinics" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Midsized Clinics</a>
+                                <a href="/solutions/animal-hospitals" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Hospitals</a>
+                                <a href="/solutions/mobile-vets" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Mobile Veterinarians</a>
+                                <a href="/solutions/data-migration" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Data Migration</a>
+                            </div>
+                        </div>
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Resources <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-40 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/blog" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Blog</a>
+                                <a href="/docs" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Documentation</a>
+                                <a href="/help" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Help Center</a>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <button class="text-brand-300 hover:text-white text-sm transition hidden sm:inline-block">
+                        <i class="fa-solid fa-globe mr-1"></i>
+                    </button>
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/faq" class="block text-brand-200 hover:text-white text-sm">FAQ</a>
+            <a href="/contact" class="block text-brand-200 hover:text-white text-sm">Contact</a>
+        </div>
+    </header>
+
+    <section class="relative hero-photo pt-16 pb-16 text-white overflow-hidden">
+        <div class="max-w-3xl mx-auto px-4 text-center relative z-10">
+            <a href="/blog" class="inline-flex items-center gap-2 text-brand-200 hover:text-white text-xs mb-5 transition"><i class="fa-solid fa-arrow-left"></i> Back to blog</a>
+            <div class="flex items-center justify-center gap-2 text-xs text-brand-200 mb-4">
+                <span class="bg-brand-500/20 px-3 py-1 rounded-full border border-brand-400/30">Puppy Care</span>
+                <span>6 min read</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15]">First 30 days with a puppy: a vet's guide</h1>
+            <p class="text-brand-200 text-sm mt-4">PodVet Editorial &middot; September 2026</p>
+        </div>
+    </section>
+
+    <article class="py-12 bg-white">
+        <div class="max-w-4xl mx-auto px-4 mb-8">
+            <img src="/img/blog-corgi.jpg" alt="Happy corgi puppy" class="w-full h-64 sm:h-96 object-cover rounded-3xl shadow-lg">
+        </div>
+        <div class="max-w-2xl mx-auto px-4 prose-note text-gray-600 leading-relaxed space-y-4">
+            <div class="flex items-center gap-3 bg-brand-surface border border-brand-200 rounded-2xl p-4 !mt-0">
+                <span class="w-11 h-11 rounded-full bg-brand-600 text-white flex items-center justify-center font-extrabold shrink-0">SM</span>
+                <div class="text-xs">
+                    <p class="font-bold text-gray-900">Dr. Sana Malik, DVM</p>
+                    <p class="text-gray-500">Lead Veterinarian &amp; PodVet Medical Editor &middot; Sep 10, 2026</p>
+                </div>
+            </div>
+
+            <p>Bringing home a puppy is joyful and a little chaotic. The first month sets the pattern for years of behaviour and health, so getting the basics right early matters more than almost anything else you'll do together.</p>
+
+            <h2 class="text-xl font-extrabold text-gray-900 !mt-8">Week 1: settle in</h2>
+            <p>Give the puppy a quiet corner, a consistent feeding schedule and plenty of sleep — puppies need up to 18&ndash;20 hours a day. Book a first vet visit within the first week for a health check, deworming and the first vaccination. Keep introductions to other pets and new people gradual and supervised.</p>
+
+            <h2 class="text-xl font-extrabold text-gray-900 !mt-8">Weeks 2&ndash;4: socialisation window</h2>
+            <p>The critical socialisation window runs roughly from 3 to 16 weeks. Expose your puppy to different surfaces, sounds, people and friendly, fully vaccinated dogs. Puppy classes that follow safe protocols are ideal. Under-socialised puppies grow into anxious or reactive adults — this window is your best chance to build a confident dog.</p>
+
+            <h2 class="text-xl font-extrabold text-gray-900 !mt-8">House training that sticks</h2>
+            <p>Take the puppy out after every nap, meal and play session. Reward the behaviour, not the puppy. Never punish accidents — just clean and refocus. With a predictable schedule, most puppies are reliably housetrained within a few weeks.</p>
+
+            <h2 class="text-xl font-extrabold text-gray-900 !mt-8">Vaccination timeline</h2>
+            <p>Your vet will build a schedule from about 6&ndash;8 weeks, with boosters a few weeks apart. Until the full course is finished, avoid parks and unvaccinated dogs. Write down every dose (and keep a photo of the vaccine card in PodVet's patient file) so nothing is missed.</p>
+
+            <div class="bg-brand-surface border border-brand-200 rounded-2xl p-5 my-6">
+                <p class="text-xs font-bold text-brand-800 uppercase tracking-wider mb-2"><i class="fa-solid fa-lightbulb"></i> Clinic tip</p>
+                <p class="text-sm">Vaccination reminders in PodVet automatically notify owners a few days before a booster is due. Clinics using reminders see fewer missed vaccines and more loyal clients — nobody has to remember "which week it was".</p>
+            </div>
+
+            <h2 class="text-xl font-extrabold text-gray-900 !mt-8">The takeaway</h2>
+            <p>The first month is about routine, safety and positive experiences. Keep vet visits on schedule, socialise early and often, and be patient — you're building habits that will last your dog's whole life.</p>
+
+            <hr class="my-8 border-gray-200">
+            <h3 class="font-extrabold text-gray-900 mb-3">More from the blog</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <a href="/blog/vaccinations-matter" class="bg-white border border-gray-200 rounded-xl p-4 text-xs hover:shadow-md transition">Why annual vaccinations still matter</a>
+                <a href="/blog/dental-health" class="bg-white border border-gray-200 rounded-xl p-4 text-xs hover:shadow-md transition">Pet dental health: more than fresh breath</a>
+                <a href="/blog/nutrition-myths" class="bg-white border border-gray-200 rounded-xl p-4 text-xs hover:shadow-md transition">Pet nutrition myths to stop believing</a>
+            </div>
+        </div>
+    </article>
+
+    <footer class="bg-black text-white pt-14 pb-10 border-t border-gray-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 pb-10 border-b border-gray-800">
+                <div class="col-span-2 space-y-3">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain">
+                    <p class="text-xs text-gray-400 leading-relaxed max-w-xs">Veterinary clinic management with AI-assisted SOAP notes, records, billing and reminders — in one platform.</p>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Pages</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/blog" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="/faq" class="hover:text-white transition">Frequently Asked Questions</a></li>
+                        <li><a href="/docs" class="hover:text-white transition">Documentation</a></li>
+                        <li><a href="/help" class="hover:text-white transition">Help Center</a></li>
+                        <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Legal</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="/terms" class="hover:text-white transition">Terms of Use</a></li>
+                        <li><a href="/signup" class="hover:text-white transition">Start a free trial</a></li>
+                        <li><a href="/app" class="hover:text-white transition">Log in to PodVet</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-gray-500 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <div class="flex space-x-4">
+                    <a href="/privacy" class="hover:underline">Privacy</a>
+                    <a href="/terms" class="hover:underline">Terms</a>
+                    <a href="/contact" class="hover:underline">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+<script>
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

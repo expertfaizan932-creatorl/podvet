@@ -159,10 +159,105 @@ setupSoapTextHandlers();
 
 setupReminderNotifications(store, () => __web.createWindowFacade());
 
-rpcChannels.set('restart-app-to-update', async () => ({ success: true }));
+// Web edition: nothing to restart into, so the channel is a no-op stub. main.js
+// (desktop) overwrites it with the real electron-updater install once this
+// module has loaded, so only fill it in when nobody has claimed it yet.
+if (!rpcChannels.has('restart-app-to-update')) {
+  rpcChannels.set('restart-app-to-update', async () => ({ success: true }));
+}
 
 // ── Web routes (kept off /api/* so the catch-all in server.js never swallows)
 const { generateWebPreload, serializeRpcResult } = require('./lib/web-preload');
+
+// ── Authentication for the browser RPC surface ──────────────────────────────
+//
+// /_rpc/:channel used to look up the handler and run it, full stop. The
+// handlers authorise against whatever session sits in the on-disk store, so an
+// anonymous visitor who had never signed in could:
+//
+//   * read the clinic owner back from `resume-session`,
+//   * fetch that owner's live access + refresh tokens from `__get-tokens`,
+//   * call all 256 data channels - records, boarding, billing, payments,
+//     patients, clients, employees, expenses, data export,
+//   * and, through the `req.body.session` re-injection below, get a `user`
+//     object of their own choosing written into the store as the session
+//     user. That last one is self-promotion to admin.
+//
+// The browser already keeps its access token in localStorage, so it can prove
+// who it is. The token is now checked against the real backend before any
+// handler runs, and only the channels that genuinely have to work before
+// sign-in are left open.
+
+const crypto = require('crypto');
+
+// The only four things a signed-out visitor is allowed to ask for.
+const PRE_AUTH_CHANNELS = new Set([
+  'login',
+  'clinic-signup',
+  'forgot-password',
+  'reset-password',
+]);
+
+const TOKEN_VERIFY_TTL_MS = 60_000;
+const MAX_VERIFIED_TOKENS = 500;
+const verifiedTokens = new Map();
+
+// The token currently loaded into the store, so a busy page does not rewrite
+// web-store.json on every single RPC. JsonStore flushes to disk synchronously.
+let activeSession = { accessToken: null, refreshToken: null, user: null };
+
+function tokenFingerprint(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+async function verifyAccessToken(token) {
+  if (!token) return { ok: false, reason: 'no token presented' };
+
+  const key = tokenFingerprint(token);
+  const hit = verifiedTokens.get(key);
+  if (hit && hit.until > Date.now()) return hit.verdict;
+
+  let verdict;
+  try {
+    const res = await fetch(`${process.env.SAAS_API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      verdict = { ok: true, user: data.user || null, activeClinic: data.activeClinic || null };
+    } else {
+      verdict = { ok: false, reason: `token rejected (HTTP ${res.status})` };
+    }
+  } catch (err) {
+    // The backend being briefly unreachable is not the same as being signed
+    // out. Fail closed but say so, so the app can retry rather than dump a
+    // clinic out of their own records because a socket blipped.
+    return { ok: false, reason: 'auth service unreachable', transient: true };
+  }
+
+  if (verifiedTokens.size > MAX_VERIFIED_TOKENS) verifiedTokens.clear();
+  verifiedTokens.set(key, { verdict, until: Date.now() + TOKEN_VERIFY_TTL_MS });
+  return verdict;
+}
+
+// A clinic left open all day should not be logged out just because its access
+// token aged out, and a valid refresh token is a legitimate credential - so an
+// expired access token gets one chance to be exchanged rather than dropped.
+async function refreshWithToken(refreshToken) {
+  try {
+    const res = await fetch(`${process.env.SAAS_API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.accessToken) return null;
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
 
 app.post('/_rpc/:channel', async (req, res) => {
   const channel = req.params.channel;
@@ -173,42 +268,79 @@ app.post('/_rpc/:channel', async (req, res) => {
   if (req.body && req.body.dialogFilePath) {
     setDialogFilePath(req.body.dialogFilePath);
   }
-  // Browser-persisted session: Render wipes ~/.podvet on every restart/redeploy,
-  // so the store may be empty while the browser is still logged in. Re-inject
-  // the tokens from localStorage before the handler runs so authed RPCs work.
-  if (req.body && req.body.session && req.body.session.tokens) {
-    const { accessToken, refreshToken, user } = req.body.session;
-    if (accessToken) {
-      store.set('saasTokens', { accessToken, refreshToken, encrypted: false });
+
+  const presented = (req.body && req.body.session && req.body.session.tokens) || null;
+  let accessToken = presented && presented.accessToken;
+  let refreshToken = presented && presented.refreshToken;
+  // Set only when the pair was exchanged, so the browser can update the copy
+  // it keeps in localStorage. Empty on every normal call.
+  let rotated = null;
+
+  // login / signup mint the session themselves - there is nothing to verify
+  // yet, and blocking them would leave nobody able to sign in at all.
+  if (!PRE_AUTH_CHANNELS.has(channel)) {
+    let verdict = await verifyAccessToken(accessToken);
+
+    if (!verdict.ok && !verdict.transient && refreshToken) {
+      const fresh = await refreshWithToken(refreshToken);
+      if (fresh) {
+        accessToken = fresh.accessToken;
+        refreshToken = fresh.refreshToken;
+        rotated = { accessToken, refreshToken };
+        verdict = await verifyAccessToken(accessToken);
+      }
     }
-    if (user) store.set('user', user);
+
+    if (!verdict.ok) {
+      if (verdict.transient) {
+        return res.status(503).json({
+          ok: false,
+          error: { code: 'AUTH_UNAVAILABLE', message: 'Could not verify your session. Please try again.' },
+        });
+      }
+      return res.status(401).json({
+        ok: false,
+        error: { code: 'UNAUTHORIZED', message: 'Please sign in to continue.' },
+      });
+    }
+
+    // Only the token that was just verified goes into the store, and the
+    // session user comes from the backend's answer about that token - never
+    // from the request body, which is how a caller could appoint themselves.
+    if (activeSession.accessToken !== accessToken) {
+      store.set('saasTokens', { accessToken, refreshToken, encrypted: false });
+      if (verdict.user) {
+        store.set('saasSession', { user: verdict.user, activeClinic: verdict.activeClinic });
+        store.set('user', setupAuthHandlers.toLocalUser(verdict));
+      }
+      activeSession = { accessToken, refreshToken, user: verdict.user };
+    }
   }
+
   let args = (req.body && req.body.args) || [];
   try {
     const result = await handler({}, ...args);
-    res.json({ ok: true, result: result === undefined ? null : serializeRpcResult(result) });
+    const payload = { ok: true, result: result === undefined ? null : serializeRpcResult(result) };
+    if (rotated) payload.session = { tokens: rotated };
+    res.json(payload);
   } catch (err) {
     res.json({ ok: false, error: { message: (err && err.message) || String(err) } });
   }
 });
 
-// Hands the current tokens back so the browser can cache them in localStorage
-// and re-inject them after a server restart wipes the on-disk store.
-rpcChannels.set('__get-tokens', async () => {
-  const raw = store.get('saasTokens');
-  if (!raw) return null;
-  if (!raw.encrypted) return raw;
-  try {
-    return {
-      accessToken: Buffer.from(raw.accessToken, 'base64').toString('utf8'),
-      refreshToken: Buffer.from(raw.refreshToken, 'base64').toString('utf8'),
-    };
-  } catch {
-    return null;
+// The push stream carried the same identity signals as the RPC surface
+// (session-expired, subscription-blocked, branding-changed, navigate-to) and
+// accepted any caller, so it gets the same token check. EventSource cannot set
+// an Authorization header, hence the query parameter - the token still only
+// ever travels to this one origin, over the same TLS connection as the app.
+app.get('/events', async (req, res) => {
+  const verdict = await verifyAccessToken(req.query && req.query.t);
+  if (!verdict.ok) {
+    res.writeHead(verdict.transient ? 503 : 401, { 'Content-Type': 'text/plain' });
+    res.end(verdict.transient ? 'auth service unavailable' : 'sign in required');
+    return;
   }
-});
 
-app.get('/events', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -272,6 +404,7 @@ const webPreload = generateWebPreload();
 const themePickerSource = fs.readFileSync(path.join(__dirname, 'theme-picker.js'), 'utf8');
 const colorPickerSource = fs.readFileSync(path.join(__dirname, 'color-picker.js'), 'utf8');
 const mobileUxSource = fs.readFileSync(path.join(__dirname, 'mobile-ux.js'), 'utf8');
+const clinicBrandingSource = fs.readFileSync(path.join(__dirname, 'clinic-branding.js'), 'utf8');
 
 // The clinic app is served as-is at /app (and every SPA route, via the catch-all
 // below). Its own screens decide auth: signed-out visitors get the app's real
@@ -279,7 +412,12 @@ const mobileUxSource = fs.readFileSync(path.join(__dirname, 'mobile-ux.js'), 'ut
 // them over to /super-admin. No injected guard, so the native login renders.
 function buildWebIndexHtml() {
   const raw = fs.readFileSync(path.join(DIST_DIR, 'index.html'), 'utf8');
-  const inject = '\n    <script src="/web-preload.js"></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n  ';
+  // clinic-branding.js comes first and is deferred: deferred scripts and
+  // module scripts run in document order, so it publishes window.__pvBrand
+  // before the app bundle's first render reads it — that is what makes the very
+  // first paint show the clinic's logo, name and colour instead of the
+  // platform's.
+  const inject = '\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n  ';
   return raw.replace('<head>', '<head>\n    ' + inject);
 }
 const webIndexHtml = buildWebIndexHtml();
@@ -290,6 +428,10 @@ app.get('/web-preload.js', (req, res) => {
 });
 app.get('/color-picker.js', (req, res) => {
   res.type('application/javascript').send(colorPickerSource);
+});
+app.get('/clinic-branding.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('application/javascript').send(clinicBrandingSource);
 });
 app.get('/theme-picker.js', (req, res) => {
   res.type('application/javascript').send(themePickerSource);
@@ -310,6 +452,48 @@ app.get('/app', (req, res) => {
 
 // The one login page is the clinic app's own login screen, available at /app.
 app.get('/login', (req, res) => res.redirect('/app'));
+
+// ── Public markdown & brochure pages (served without file extension) ─
+const PUBLIC_PAGES = path.join(__dirname, 'public');
+const staticPageCache = {};
+const STATIC_PAGE_ROUTES = ['about', 'contact', 'faq', 'privacy', 'terms', 'blog', 'demo', 'docs', 'help'];
+for (const page of STATIC_PAGE_ROUTES) {
+  staticPageCache[page] = fs.readFileSync(path.join(PUBLIC_PAGES, `${page}.html`), 'utf8');
+  app.get(`/${page}`, (req, res) => {
+    res.type('text/html').send(staticPageCache[page]);
+  });
+}
+app.get('/blog/:slug', (req, res) => {
+  try {
+    const slug = req.params.slug.replace(/\.html$/, '');
+    const html = fs.readFileSync(path.join(PUBLIC_PAGES, 'blog', `${slug}.html`), 'utf8');
+    return res.type('text/html').send(html);
+  } catch {
+    return res.redirect('/blog');
+  }
+});
+app.get('/features/:slug', (req, res) => {
+  try {
+    const slug = req.params.slug.replace(/\.html$/, '');
+    if (!/^[a-z-]+$/.test(slug)) return res.redirect('/demo');
+    const html = fs.readFileSync(path.join(PUBLIC_PAGES, 'features', `${slug}.html`), 'utf8');
+    return res.type('text/html').send(html);
+  } catch {
+    return res.redirect('/demo');
+  }
+});
+// Audience pages (solo practitioners, midsized clinics, hospitals…) mirror the
+// /features/:slug handling; the generated pages live in public/solutions.
+app.get('/solutions/:slug', (req, res) => {
+  try {
+    const slug = req.params.slug.replace(/\.html$/, '');
+    if (!/^[a-z-]+$/.test(slug)) return res.redirect('/demo');
+    const html = fs.readFileSync(path.join(PUBLIC_PAGES, 'solutions', `${slug}.html`), 'utf8');
+    return res.type('text/html').send(html);
+  } catch {
+    return res.redirect('/demo');
+  }
+});
 
 // ── Platform Super Admin (separate app + separate /api/super-admin namespace) ─
 const SUPER_ADMIN_DIR = path.join(__dirname, 'public', 'super-admin');
@@ -335,8 +519,15 @@ app.use((req, res, next) => {
   next();
 });
 
-startServer(WEB_PORT).then(() => {
-  console.log(`PodVet running at http://localhost:${WEB_PORT}`);
-  console.log(`  data dir: ${WEB_USER_DATA_DIR}`);
-  console.log(`  login with any account on the embedded backend (e.g. admin / admin123)`);
-});
+if (!process.versions.electron) {
+  startServer(WEB_PORT).then(() => {
+    console.log(`PodVet running at http://localhost:${WEB_PORT}`);
+    console.log(`  data dir: ${WEB_USER_DATA_DIR}`);
+    console.log(`  login with any account on the embedded backend (e.g. admin / admin123)`);
+  });
+} else {
+  // When run under Electron, start server but don't log to console in same way
+  startServer(WEB_PORT).catch(err => {
+    console.error('Server start failed:', err);
+  });
+}

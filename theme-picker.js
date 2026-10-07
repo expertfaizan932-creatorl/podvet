@@ -67,6 +67,10 @@
       if (window.electronAPI && window.electronAPI.brandingUpdate) {
         window.electronAPI.brandingUpdate({ color: hslToRgb(hsl.h, hsl.s, hsl.l) }).catch(function () {});
       }
+      // clinic-branding.js owns window.__pvBrand. Tell it the committed colour
+      // so the sidebar, favicons and the per-clinic cache follow along instead
+      // of the app and the picker disagreeing about the brand colour.
+      window.dispatchEvent(new CustomEvent('pv:brand-color', { detail: { color: hslToRgb(hsl.h, hsl.s, hsl.l) } }));
     }
     var sw = document.getElementById('pv-theme-swatch');
     if (sw) sw.style.backgroundColor = hslToRgb(hsl.h, hsl.s, hsl.l);
@@ -210,13 +214,28 @@
           seedSwatchFromStored();
         }
       }).catch(function () {});
+    } else {
+      // clinic-branding.js resolved a server-side brand colour but no local
+      // colour is stored yet — mirror it into localStorage so this picker's
+      // swatch and "Reset" behave against the clinic's real colour.
+      var sb = window.__pvBrand && window.__pvBrand.color;
+      if (sb) { try { localStorage.setItem(STORE_KEY, sb); } catch (_) {} }
     }
   }
 
-  // Apply stored brand on every load.
+  // Apply stored brand on every load. The clinic's own brand_color wins when
+  // clinic-branding.js has already resolved one: a per-clinic server value has
+  // to beat a leftover localStorage value from another clinic in the same
+  // browser, which is exactly what used to happen here.
   try {
+    var serverBrand = window.__pvBrand && window.__pvBrand.color;
     var stored = localStorage.getItem(STORE_KEY);
-    if (stored) applyBrand(hexToHsl(stored), false);
+    if (serverBrand) {
+      applyBrand(hexToHsl(serverBrand), false);
+      try { localStorage.setItem(STORE_KEY, serverBrand); } catch (_) {}
+    } else if (stored) {
+      applyBrand(hexToHsl(stored), false);
+    }
   } catch (_) {}
 
   var observer = new MutationObserver(function () { ensureInjected(); });

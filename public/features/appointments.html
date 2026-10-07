@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <title>Appointments & Daily Flowboard | PodVet</title>
+    <meta name="description" content="Manage your clinic's schedule with a per-vet daily flowboard. Book, reschedule and check patients in, attach vaccinations and products to any visit, and let the auto-scheduler fill empty slots.">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: #1e1b26; overflow-x: hidden; }
+        .hero-photo {
+            background-image: linear-gradient(180deg, rgba(13, 46, 80, 0.92), rgba(27, 110, 161, 0.78)), url('/img/blog-vet-exam.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+<header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <a href="/blog" class="hover:text-white transition">Blog</a>
+                        <a href="/faq" class="hover:text-white transition">FAQ</a>
+                        <a href="/contact" class="hover:text-white transition">Contact</a>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/faq" class="block text-brand-200 hover:text-white text-sm">FAQ</a>
+            <a href="/contact" class="block text-brand-200 hover:text-white text-sm">Contact</a>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="relative hero-photo pt-16 pb-20 text-white overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <nav class="text-xs text-brand-200 mb-5 flex items-center justify-center gap-2">
+                <a href="/" class="hover:text-white">Home</a><span class="opacity-60">/</span><a href="/demo" class="hover:text-white">Live Demo</a><span class="opacity-60">/</span><span class="text-white font-semibold">Appointments</span>
+            </nav>
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-900/60 border border-brand-400/30 text-xs font-medium text-brand-200 mb-5">
+                <i class="fa-solid fa-calendar-check"></i> Appointments
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-4">Appointments & Daily Flowboard</h1>
+            <p class="max-w-2xl mx-auto text-base sm:text-lg text-brand-200 leading-relaxed mb-8">Every patient, every vet, every slot — in one glance. Manage your clinic's schedule with a per-vet daily flowboard. Book, reschedule and check patients in, attach vaccinations and products to any visit, and let the auto-scheduler fill empty slots.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/app" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-sm px-6 py-3 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0"><i class="fa-solid fa-arrow-right-to-bracket mr-2"></i>Try it in the live app</a>
+                <a href="/demo" class="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-bold text-sm px-6 py-3 rounded-full transition-all duration-200"><i class="fa-solid fa-shapes mr-2"></i>View all modules</a>
+            </div>
+        </div>
+    </section>
+
+    <main class="py-12 bg-brand-surface">
+        <section class="max-w-6xl mx-auto px-4"><h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-calendar-check text-brand-700"></i> Today's appointments <span class="text-xs font-semibold text-brand-800 bg-brand-100 px-2.5 py-1 rounded-full">June 20, 2026</span></h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Scheduled today</p><p class="text-2xl font-extrabold text-brand-900">24</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Pending</p><p class="text-2xl font-extrabold text-amber-600">8</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Vaccinations due</p><p class="text-2xl font-extrabold text-emerald-600">12</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">No-shows today</p><p class="text-2xl font-extrabold text-rose-600">3</p></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between">
+                    <span class="font-bold text-sm"><i class="fa-solid fa-hospital mr-2"></i>Main Clinic &mdash; Daily Flowboard</span>
+                    <span class="hidden sm:flex items-center gap-2 text-xs text-brand-200"><i class="fa-solid fa-magnifying-glass"></i> search patient or client</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th class="px-4 py-3">Time</th><th class="px-4 py-3">Patient</th><th class="px-4 py-3">Owner</th><th class="px-4 py-3">Vet</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th>
+                        </tr></thead>
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr><td class="px-4 py-3 font-semibold">09:00</td><td class="px-4 py-3">Leo <span class="text-xs text-gray-400">(Golden Retriever)</span></td><td class="px-4 py-3">Adam Jansone</td><td class="px-4 py-3">Dr. Emre</td><td class="px-4 py-3">Vaccination</td><td class="px-4 py-3"><span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Checked in</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">09:30</td><td class="px-4 py-3">Milo <span class="text-xs text-gray-400">(Border Collie)</span></td><td class="px-4 py-3">Sarah Kim</td><td class="px-4 py-3">Dr. Sana</td><td class="px-4 py-3">Check-up</td><td class="px-4 py-3"><span class="text-xs bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">In room 2</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">10:00</td><td class="px-4 py-3">Bella <span class="text-xs text-gray-400">(Beagle)</span></td><td class="px-4 py-3">Maria Silva</td><td class="px-4 py-3">Dr. Demet</td><td class="px-4 py-3">Dental clean</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Waiting</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">10:30</td><td class="px-4 py-3">Rocky <span class="text-xs text-gray-400">(Rottweiler)</span></td><td class="px-4 py-3">Omar Fayez</td><td class="px-4 py-3">Dr. Emre</td><td class="px-4 py-3">Wound care</td><td class="px-4 py-3"><span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">No-show</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">11:00</td><td class="px-4 py-3">Coco <span class="text-xs text-gray-400">(Persian Cat)</span></td><td class="px-4 py-3">Nadia Haddad</td><td class="px-4 py-3">Dr. Ceren</td><td class="px-4 py-3">Skin consult</td><td class="px-4 py-3"><span class="text-xs bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">In room 1</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-200 flex flex-wrap gap-2">
+                    <button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-full font-semibold hover:bg-brand-700 transition"><i class="fa-solid fa-plus"></i> New appointment</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-diagram-project"></i> Auto-scheduler</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-bell"></i> Send reminders</button>
+                </div>
+            </div></section>
+        
+<div class="max-w-6xl mx-auto px-4 mt-14"><h3 class="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Explore other modules</h3><div class="flex flex-wrap gap-2"><a href="/features/vaccinations" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-syringe text-brand-700"></i> Vaccinations</a>
+        <a href="/features/client-records" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-address-book text-brand-700"></i> Client Records</a>
+        <a href="/features/medical-records" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-notes-medical text-brand-700"></i> Medical Records</a>
+        <a href="/features/inventory" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-boxes-stacked text-brand-700"></i> Inventory</a>
+        <a href="/features/reporting" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-chart-line text-brand-700"></i> Reporting</a>
+        <a href="/features/messaging" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-brands fa-whatsapp text-brand-700"></i> SMS & WhatsApp</a></div></div>
+    </main>
+
+    <section class="py-12 bg-brand-900">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-3">Ready to put Appointments to work in your clinic?</h2>
+            <p class="text-brand-200 text-sm sm:text-base mb-6">Join 400+ veterinarians who switched to PodVet.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-sm px-6 py-3 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0"><i class="fa-solid fa-rocket mr-2"></i>Start your free trial</a>
+                <a href="/contact" class="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-bold text-sm px-6 py-3 rounded-full transition-all duration-200">Book a demo</a>
+            </div>
+        </div>
+    </section>
+
+<footer class="bg-brand-950 text-brand-200">
+        <div class="max-w-6xl mx-auto px-4 py-12">
+            <div class="flex flex-col sm:flex-row justify-between gap-6 mb-8">
+                <div class="max-w-sm">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain mb-3">
+                    <p class="text-xs leading-relaxed text-brand-200/70">AI-driven veterinary clinic management &mdash; appointments, records, invoicing and reminders in one place.</p>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/" class="block hover:text-white transition">Home</a>
+                    <a href="/#pricing" class="block hover:text-white transition">Pricing</a>
+                    <a href="/about" class="block hover:text-white transition">About</a>
+                    <a href="/contact" class="block hover:text-white transition">Contact</a>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/blog" class="block hover:text-white transition">Blog</a>
+                    <a href="/docs" class="block hover:text-white transition">Documentation</a>
+                    <a href="/help" class="block hover:text-white transition">Help Center</a>
+                    <a href="/faq" class="block hover:text-white transition">FAQ</a>
+                    <a href="/privacy" class="block hover:text-white transition">Privacy</a>
+                    <a href="/terms" class="block hover:text-white transition">Terms</a>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-brand-200/60 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-brand-800/50">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <a href="/app" class="hover:text-white transition">Open the live app <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+            </div>
+        </div>
+    </footer>
+
+
+    <script>
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

@@ -4,3 +4,20 @@ node_modules/
 npm-debug.log*
 uploads/
 .cache/
+vendor/
+dist/
+updates/
+
+# local scratch / build junk
+build/
+.local-podvet/
+.opencode/
+podvet/
+_migrate.js
+scripts/_*.js
+*.bak*
+logo_extract/
+logo sheet.pdf
+podvet 1.png
+podvet_landing_page*.html
+podvet_loyalty_card_generator.html

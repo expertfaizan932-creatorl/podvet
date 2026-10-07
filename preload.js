@@ -101,6 +101,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getVendorSettlementPreview: (params) => invoke("get-vendor-settlement-preview", params),
     createVendorSettlement: (payload) => invoke("create-vendor-settlement", payload),
     retrieveVendorSettlements: (vendorId) => invoke("retrieve-vendor-settlements", vendorId),
+    // Stock bought from a vendor: entry + history. Saving/deleting also moves
+    // product quantity on the server, so no separate stock call is needed.
+    retrieveVendorPurchases: (vendorId) => invoke("retrieve-vendor-purchases", vendorId),
+    addVendorPurchase: (payload) => invoke("add-vendor-purchase", payload),
+    deleteVendorPurchase: (payload) => invoke("delete-vendor-purchase", payload),
     // Add to your existing contextBridge.exposeInMainWorld
     getClientUnpaidSummary: (params) => invoke('get-client-unpaid-summary', params),
     generateClientUnpaidLedger: (params) => invoke('generate-client-unpaid-ledger', params),
@@ -310,6 +315,17 @@ removeAppointmentPrediscount: (data) => invoke('remove-appointment-prediscount',
     const listener = () => callback();
     ipcRenderer.on('session-expired', listener);
     return () => ipcRenderer.removeListener('session-expired', listener);
+  },
+
+  // Clinic branding changed — fired by the branding-update handler in
+  // handlers/settingsHandlers.js after a successful save. The renderer uses it
+  // to re-read the session and repaint the sidebar logo/name, tab title and
+  // favicons with the clinic's own branding, so a rename or a new logo shows up
+  // immediately instead of only after a page reload.
+  onBrandingChanged: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('branding-changed', listener);
+    return () => ipcRenderer.removeListener('branding-changed', listener);
   },
 
   // Fired when the user clicks a native reminder notification (see

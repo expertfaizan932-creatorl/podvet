@@ -34,6 +34,9 @@ module.exports = function setupEmployeesHandlers() {
         // Blank is fine — joined_on is optional. undefined (not sent) is
         // equivalent to null here since there's no prior value to preserve.
         joinedOn: employee.joined_on || undefined,
+        // Social profiles as [{ platform, url }]; the server keeps only the
+        // platforms it knows and stores the rest as a null.
+        socialLinks: employee.socialLinks || employee.social_links || [],
       });
       return { success: true, message: 'Employee Added Successfully!' };
     } catch (err) {
@@ -54,6 +57,7 @@ module.exports = function setupEmployeesHandlers() {
         // joined_on, and the user clearing the field in the edit form means
         // "clear it," not "leave it unchanged."
         joinedOn: employee.joined_on || null,
+        socialLinks: employee.socialLinks || employee.social_links || [],
       });
       return { success: true, message: 'Successfully Updated Employee' };
     } catch (err) {

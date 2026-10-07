@@ -7,10 +7,266 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PodVet - Veterinary Management</title>
+    <script>
+      /* Tab-switch scroll memory. Runs before the app bundle so the browser's
+         own scrollRestoration is disabled before the first route paints.
+         Without this the browser restores the previous history entry's scroll
+         offset on every tab switch, so listings open at a stale position and
+         a half-filled form is no longer where the user left it. */
+      (function () {
+        if (window.__podvetScrollFix) return;
+        window.__podvetScrollFix = true;
+
+        var KEY = 'podvet:scroll:';
+        var lastHash = null;
+
+        try {
+          if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+          }
+        } catch (e) {
+          /* older browsers: the rest of the fix still applies */
+        }
+
+        function routeKey() {
+          /* Hash routing, so the route is the hash. Keep it at the first two
+             path segments ("#/clients", "#/dashboard") so an optional record id
+             ("#/clients/42") reuses the same remembered position instead of
+             silently starting at the top of a different list. */
+          var h = window.location.hash || '';
+          if (!h) return '#/';
+          var path = h.replace(/^#/, '').split('?')[0];
+          var parts = path.split('/').filter(Boolean);
+          return '#/' + parts.slice(0, 2).join('/');
+        }
+
+        function read(key) {
+          try {
+            var raw = window.sessionStorage.getItem(KEY + key);
+            if (raw === null) return null;
+            var n = parseInt(raw, 10);
+            return isNaN(n) || n < 0 ? null : n;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        function write(key, pos) {
+          try {
+            window.sessionStorage.setItem(KEY + key, String(pos));
+          } catch (e) {
+            /* private mode / quota: scroll memory is a nicety, not a requirement */
+          }
+        }
+
+        function maxScroll() {
+          var doc = document.documentElement;
+          var body = document.body;
+          var h = Math.max(doc ? doc.scrollHeight : 0, body ? body.scrollHeight : 0);
+          var vh = window.innerHeight ||
+            (doc && doc.clientHeight) ||
+            (body && body.clientHeight) || 0;
+          return Math.max(0, h - vh);
+        }
+
+        /* The route chunk is lazy(), so at hashchange the new view has usually
+           not painted yet and the document is still short — scrolling straight
+           away would clamp to 0. Retry across a few frames until the layout is
+           tall enough to hold the remembered offset, then stop. */
+        function applyScroll(target) {
+          var attempts = 0;
+          function attempt() {
+            var want = Math.min(target, maxScroll());
+            if (want > 0) {
+              window.scrollTo(0, want);
+              /* Confirm it took; if the DOM grew, one more pass to settle. */
+              if (Math.abs(window.pageYOffset - want) > 2 && attempts < 3) {
+                attempts++;
+                window.requestAnimationFrame(attempt);
+                return;
+              }
+            } else {
+              window.scrollTo(0, 0);
+            }
+          }
+          if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(attempt);
+          } else {
+            window.setTimeout(attempt, 0);
+          }
+        }
+
+        function onRouteChange() {
+          var key = routeKey();
+          if (key === lastHash) return;
+
+          /* Remember where we were on the tab we are leaving. */
+          if (lastHash !== null) {
+            write(lastHash, window.pageYOffset || document.documentElement.scrollTop || 0);
+          }
+          lastHash = key;
+
+          var saved = read(key);
+          /* A tab never opened before starts at the top. A tab opened before
+             returns to exactly where the user left it. */
+          applyScroll(saved === null ? 0 : saved);
+        }
+
+        /* Keep the remembered position current while the user scrolls, so
+           leaving a tab from a scroll event still saves correctly. */
+        var saveTimer = null;
+        window.addEventListener('scroll', function () {
+          if (saveTimer) return;
+          saveTimer = window.setTimeout(function () {
+            saveTimer = null;
+            if (lastHash !== null) {
+              write(lastHash, window.pageYOffset || document.documentElement.scrollTop || 0);
+            }
+          }, 150);
+        }, { passive: true });
+
+        window.addEventListener('hashchange', onRouteChange);
+        /* Back/forward: under "manual" the browser restores nothing itself. */
+        window.addEventListener('popstate', onRouteChange);
+
+        /* Restore on first load too, otherwise reloading a deep-linked tab
+           drops the user at the top of a long list. */
+        if (window.location.hash) {
+          lastHash = routeKey();
+          var initial = read(lastHash);
+          if (initial !== null) applyScroll(initial);
+        }
+      })();
+    </script>
+    <style>
+      /* The sidebar is re-rendered on every route change and briefly loses the
+         role-gated items, so its scrollable height collapses and the browser
+         clamps the offset - which reads to the user as the sidebar jumping to
+         the top, or springing back so the item they clicked is in view again.
+         Turning off scroll anchoring stops the browser re-anchoring the offset
+         when that content comes back; the script below stops it collapsing. */
+      nav { overflow-anchor: none; }
+    </style>
+    <script>
+      /* Hold the sidebar's scroll range steady across a click.
+         Measured on a real click: the nav renders 20 items (scrollHeight 908)
+         for one frame, then 12 while the role-gated entries resolve
+         (scrollHeight 556), then 20 again. The nav's own height is fixed at
+         349px by the flex parent, so only the content height moves - and with
+         it the maximum scroll, from 559 down to 207. An offset of 300 is then
+         physically impossible and the browser clamps it, which is the jump.
+         Re-applying scrollTop cannot prevent that: there is nowhere to scroll
+         to. The range has to stay wide instead, so pad the nav by exactly the
+         height it is short by, and remove the padding once the items are back.
+         Scoped to a click, and abandoned the moment the user scrolls, so this
+         never fights normal scrolling. */
+      (function () {
+        if (window.__podvetNavClamp) return;
+        window.__podvetNavClamp = true;
+
+        var full = 0;        /* scroll height the nav had with its full list */
+        var at = 0;          /* the offset the sidebar was sitting at */
+        var raf = null;
+        var deadline = 0;
+
+        function nav() {
+          return document.querySelector('nav');
+        }
+
+        function stop() {
+          if (raf) {
+            cancelAnimationFrame(raf);
+            raf = null;
+          }
+          var n = nav();
+          if (n && n.style.paddingBottom) n.style.removeProperty('padding-bottom');
+          full = 0;
+        }
+
+        function frame() {
+          raf = null;
+          if (full <= 0) return;
+          var n = nav();
+          if (!n) {
+            if (Date.now() < deadline) raf = requestAnimationFrame(frame);
+            return;
+          }
+
+          /* Subtract only the padding actually on this element. React throws the
+             nav away and builds a new one as the list changes, and a value
+             remembered across that swap would under-count the content and make
+             the padding grow on every pass. */
+          var applied = parseInt(n.style.paddingBottom, 10) || 0;
+          var content = n.scrollHeight - applied;
+
+          if (content < full) {
+            /* Hold the range open so the offset stays reachable and the browser
+               has no reason to clamp it. */
+            n.style.paddingBottom = (full - content) + 'px';
+          } else if (applied) {
+            /* The list is whole again: give the space back. */
+            n.style.removeProperty('padding-bottom');
+          }
+
+          /* Padding alone is not enough. The browser clamps the offset the
+             instant the short list lays out, and React sometimes replaces the
+             nav outright, which drops the offset to zero on its own. By then
+             the value is already gone. So put it back here, in the same frame
+             the shortfall appears - and only while it is genuinely reachable,
+             and only while the user has not touched the sidebar. */
+          if (n.scrollTop !== at && n.scrollHeight - n.clientHeight >= at) {
+            n.scrollTop = at;
+          }
+
+          /* Stay armed for the whole window. The shortfall lands well after the
+             click - on a slow connection the role-gated items can be a second
+             away - so standing down at the first frame that looks complete is
+             what left the sidebar jumping. */
+          if (Date.now() < deadline) {
+            raf = requestAnimationFrame(frame);
+          } else {
+            full = 0;
+            n.style.removeProperty('padding-bottom');
+          }
+        }
+
+        /* Any real input means the user is driving the sidebar, so stand down.
+           pointerdown is what covers dragging the scrollbar, which produces no
+           wheel and no key. It fires before the click that arms the guard, so
+           it costs nothing there. Deliberately not watching for scroll events:
+           the clamp we are here to prevent is itself a scroll event, and there
+           is no way to tell the two apart after the fact. */
+        ['pointerdown', 'wheel', 'touchmove', 'keydown'].forEach(function (ev) {
+          window.addEventListener(ev, function (e) {
+            if (e.target && e.target.closest && e.target.closest('nav')) stop();
+          }, { capture: true, passive: true });
+        });
+
+        /* Capture at click, not from a remembered value: restoring a stored
+           offset is what threw the user back to a different item.
+           Capture phase on the document, so this runs before React Router acts
+           and the nav is still showing its full list - which is the height we
+           need to hold. pointerdown would miss clicks that are not a full
+           pointer gesture. */
+        document.addEventListener('click', function (e) {
+          var link = e.target && e.target.closest && e.target.closest('nav a');
+          var n = nav();
+          if (!link || !n) return;
+          stop();
+          full = n.scrollHeight;
+          at = n.scrollTop;
+          deadline = Date.now() + 2500;
+          if (full > 0) frame();
+        }, { capture: true, passive: true });
+      })();
+    </script>
     <script type="module" crossorigin src="./assets/index-DPVZ9-tL.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CnERa_x9.css">
-  </head>
+
+    <link rel="stylesheet" crossorigin href="./assets/index-CnERa_x9.css">
+
+  </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
+
   </body>
 </html>

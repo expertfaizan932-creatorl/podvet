@@ -155,6 +155,11 @@ module.exports = function setupSettingsHandlers(store) {
           address: c.address || null,
           phone: c.phone || null,
           groupProductsOnInvoice: !!c.groupProductsOnInvoice,
+          // White-label extras — printed on generated documents and the app
+          // footer. Empty string means "show nothing" (both used to be
+          // hardcoded vendor strings on every document).
+          tagline: c.tagline || "",
+          poweredBy: c.poweredBy || "",
         },
       };
     } catch (err) {
@@ -165,20 +170,68 @@ module.exports = function setupSettingsHandlers(store) {
 
   ipcMain.handle(
     "branding-update",
-    async (_event, { clinicName, color, logoUrl, address, phone, groupProductsOnInvoice } = {}) => {
+    async (_event, { clinicName, color, logoUrl, address, phone, groupProductsOnInvoice, tagline, poweredBy } = {}) => {
       try {
-        await saasClient.updateMyClinic({
-          clinicName,
-          brandColor: color || null,
-          address: address || null,
-          phone: phone || null,
-          groupProductsOnInvoice: !!groupProductsOnInvoice,
-          // Only touch logoUrl when a new one was actually uploaded this
-          // save — omitting the key entirely must not blank out the
-          // clinic's existing logo.
-          ...(logoUrl !== undefined ? { logoUrl: logoUrl || null } : {}),
-        });
-        return { success: true, message: "Branding updated successfully" };
+        // Send ONLY the keys the caller actually passed. This handler used to
+        // forward every field unconditionally, coercing the absent ones to
+        // null/false — so the logo-only save the signup screen makes right
+        // after creating a clinic (`brandingUpdate({ logoUrl })`) silently
+        // wiped the clinic's address, phone and brand colour back to nothing.
+        // The server already treats an absent key as "leave this column
+        // alone", so omitting is the correct way to express "not changing
+        // this".
+        const patch = {};
+        if (clinicName !== undefined) patch.clinicName = clinicName;
+        if (color !== undefined) patch.brandColor = color || null;
+        if (address !== undefined) patch.address = address || null;
+        if (phone !== undefined) patch.phone = phone || null;
+        if (groupProductsOnInvoice !== undefined) patch.groupProductsOnInvoice = !!groupProductsOnInvoice;
+        if (tagline !== undefined) patch.tagline = tagline || null;
+        if (poweredBy !== undefined) patch.poweredBy = poweredBy || null;
+        if (logoUrl !== undefined) patch.logoUrl = logoUrl || null;
+        await saasClient.updateMyClinic(patch);
+
+        // The cached session (what getSession() returns, and therefore what the
+        // app shell renders its name/logo from) still holds the pre-save
+        // branding. Refresh it here so a rename or a new logo repaints the
+        // whole app without a reload.
+        let localUser = null;
+        try {
+          const refreshed = await saasClient.getMyClinic();
+          const c = refreshed.clinic || {};
+          localUser = {
+            ...(store.get('user') || {}),
+            organization_name: c.clinicName ?? store.get('user')?.organization_name ?? null,
+            clinic_logo: c.logoUrl ?? null,
+            clinic_color: c.brandColor ?? null,
+            clinic_address: c.address ?? '',
+            clinic_phone: c.phone ?? '',
+            clinic_tagline: c.tagline ?? '',
+            clinic_powered_by: c.poweredBy ?? '',
+          };
+          store.set('user', localUser);
+        } catch (e) {
+          console.error("[branding-update] session refresh failed", e.message);
+        }
+        // Tell every renderer to re-read the session and repaint. Done as a
+        // broadcast rather than in-page because this handler runs in the main
+        // process (Node), not in the browser. The refreshed user travels with
+        // it: this fires before the RPC reply reaches the caller, and in any
+        // other open tab no reply arrives at all, so a renderer that only
+        // re-read its own (still pre-save) session would repaint the old name
+        // and logo. The returned copy is what the saving tab caches — in the
+        // web edition index.js re-injects the browser's cached user into the
+        // store on every RPC, so the renderer must store it or the next
+        // request would overwrite this with the pre-save branding again.
+        try {
+          const { BrowserWindow } = require('electron');
+          for (const win of BrowserWindow.getAllWindows()) {
+            win.webContents.send('branding-changed', { user: localUser });
+          }
+        } catch (e) {
+          console.error('[branding-update] broadcast failed', e.message);
+        }
+        return { success: true, message: "Branding updated successfully", user: localUser };
       } catch (err) {
         console.error("[branding-update]", err);
         return { success: false, message: err.message };
@@ -230,7 +283,11 @@ module.exports = function setupSettingsHandlers(store) {
       // per-record and resolved by the caller (already passed in above).
       const clinicResult = await saasClient.getMyClinic();
       const shared = await resolveApiBranding(store, clinicResult.clinic);
-      const branding = { color: shared.color, logoPath: shared.logoPath };
+      const branding = {
+        color: shared.color,
+        logoPath: shared.logoPath,
+        poweredBy: shared.poweredBy,
+      };
       const pdfBuffer = await generatePrescriptionPdf(prescription, pet, orgName, address, phone, vets, branding);
       return { success: true, data: pdfBuffer };
     } catch (error) {

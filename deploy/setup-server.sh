@@ -75,6 +75,14 @@ if [ -f "$APP_DIR/db/schema.sql" ]; then
 fi
 
 # ── 5. .env ──────────────────────────────────────────────────────────────────
+# Publish token for the desktop auto-update feed (POST /updates/publish).
+# Generated once and cached so a re-deploy never invalidates a release script
+# that already holds the current token.
+if [ ! -f "$APP_DIR/.updates-token" ]; then
+  openssl rand -hex 24 > "$APP_DIR/.updates-token"
+fi
+UPDATES_PUBLISH_TOKEN="$(tr -d '[:space:]' < "$APP_DIR/.updates-token")"
+
 cat > "$APP_DIR/.env" <<ENV
 WEB_PORT=${APP_PORT}
 DB_HOST=${DB_HOST}
@@ -88,6 +96,7 @@ DB_SSL=false
 SUPER_ADMIN_USERNAME=${SUPER_ADMIN_USERNAME:-superadmin}
 SUPER_ADMIN_PASSWORD=${SUPER_ADMIN_PASSWORD:-}
 SUPER_ADMIN_EMAIL=${SUPER_ADMIN_EMAIL:-superadmin@podvet.local}
+UPDATES_PUBLISH_TOKEN=${UPDATES_PUBLISH_TOKEN}
 ENV
 
 # ── 6. systemd service ───────────────────────────────────────────────────────
@@ -132,6 +141,9 @@ if [ -f "${CERT_DIR}/fullchain.pem" ]; then
 server {
     server_name ${DOMAIN};
 
+    # Receiving a new desktop installer (~130 MB) on /updates/publish.
+    client_max_body_size 512m;
+
     location / {
         proxy_pass http://127.0.0.1:${APP_PORT};
         proxy_http_version 1.1;
@@ -162,6 +174,9 @@ else
 server {
     listen 80;
     server_name ${DOMAIN};
+
+    # Receiving a new desktop installer (~130 MB) on /updates/publish.
+    client_max_body_size 512m;
 
     location / {
         proxy_pass http://127.0.0.1:${APP_PORT};

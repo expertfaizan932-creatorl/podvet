@@ -327,9 +327,14 @@ async function generatePrescriptionPdf(prescription, pet, orgName, address, phon
       fy += 13;
     }
 
-    doc.save().fillColor(TEAL_LIGHT).fontSize(7.5).font('Helvetica')
-       .text('Powered by Parkar Technologies LLC', ML, footerY + 16,
-         { width: CONTENT_W, align: 'right' }).restore();
+    // The clinic's own "powered by" line, or nothing — this used to be a fixed
+    // 'Powered by Parkar Technologies LLC' stamped on every prescription no
+    // matter which clinic issued it.
+    if (branding.poweredBy) {
+      doc.save().fillColor(TEAL_LIGHT).fontSize(7.5).font('Helvetica')
+         .text(String(branding.poweredBy), ML, footerY + 16,
+           { width: CONTENT_W, align: 'right' }).restore();
+    }
 
     doc.save().fillColor('#cbd5e0').fontSize(7).font('Helvetica')
        .text('Computer-generated document', ML, footerY + 31,

@@ -131,6 +131,13 @@ async function resolveApiBranding(storeInst, clinicData) {
     logoPath:   logoPath || legacy.logoPath || null,
     address:    clinicData?.address || legacy.address || '',
     phone:      clinicData?.phone || legacy.phone || '',
+    // Document masthead tagline and vendor footer. These used to be a fixed
+    // "Most Trusted Veterinarian Clinic in London — Parkar Technologies LLC
+    // (As Per Survey Of 2025)" / "Powered by Parkar Technologies LLC." string
+    // printed on every invoice, expense report, POS/lab slip and prescription,
+    // regardless of which clinic generated it. Empty means print nothing.
+    trustedTagline: clinicData?.tagline || legacy.tagline || '',
+    poweredBy:      clinicData?.poweredBy || legacy.poweredBy || '',
   };
 }
 

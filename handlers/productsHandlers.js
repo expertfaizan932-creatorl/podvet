@@ -163,8 +163,12 @@ module.exports = function setupProductsHandlers() {
   // user explicitly approves it.
   ipcMain.handle("scan-products-csv", async () => {
     const picked = await dialog.showOpenDialog({
-      title: "Select Products CSV",
-      filters: [{ name: "CSV", extensions: ["csv"] }],
+      title: "Select Products Spreadsheet",
+      filters: [
+        { name: "Spreadsheet", extensions: ["csv", "xlsx", "xls"] },
+        { name: "CSV", extensions: ["csv"] },
+        { name: "Excel", extensions: ["xlsx", "xls"] },
+      ],
       properties: ["openFile"],
     });
     if (picked.canceled || !picked.filePaths.length) {
@@ -173,15 +177,15 @@ module.exports = function setupProductsHandlers() {
 
     let rows;
     try {
-      // XLSX.readFile auto-detects CSV from the extension — same parser
-      // already used for the Settings > Data Management Excel import, no
-      // need for a second CSV-parsing dependency.
+      // XLSX.readFile auto-detects CSV vs Excel from the extension — the same
+      // parser already used for the Settings > Data Management Excel import,
+      // so .csv and .xlsx are both accepted and need no second dependency.
       const workbook = XLSX.readFile(picked.filePaths[0]);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     } catch (err) {
       console.error("[scan-products-csv] parse error:", err);
-      return { success: false, message: "Could not read that file — make sure it's a valid CSV." };
+      return { success: false, message: "Could not read that file — make sure it's a valid CSV or Excel file." };
     }
 
     if (rows.length === 0) {

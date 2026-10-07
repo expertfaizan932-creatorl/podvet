@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PodVet Live Demo - Explore Every Module</title>
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: #1e1b26; overflow-x: hidden; }
+        .hero-photo {
+            background-image: linear-gradient(180deg, rgba(13, 46, 80, 0.92), rgba(27, 110, 161, 0.78)), url('/img/blog-vet-exam.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .demo-tab-btn.active { background: rgb(var(--brand-800)); color: #fff; border-color: rgba(255,255,255,.4); }
+        .bar { border-radius: 6px 6px 0 0; background: linear-gradient(180deg, rgb(var(--brand-500)), rgb(var(--brand-700))); }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+    <!-- NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <a href="/blog" class="hover:text-white transition">Blog</a>
+                        <a href="/faq" class="hover:text-white transition">FAQ</a>
+                        <a href="/contact" class="hover:text-white transition">Contact</a>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/faq" class="block text-brand-200 hover:text-white text-sm">FAQ</a>
+            <a href="/contact" class="block text-brand-200 hover:text-white text-sm">Contact</a>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="relative hero-photo pt-16 pb-16 text-white overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <a href="/" class="inline-flex items-center gap-2 text-brand-200 hover:text-white text-xs mb-5 transition"><i class="fa-solid fa-arrow-left"></i> Back to home</a>
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-900/60 border border-brand-400/30 text-xs font-medium text-brand-200 mb-5">
+                <span class="w-2 h-2 rounded-full bg-brand-400 animate-pulse"></span> Live Demo
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-5">Every module, one place</h1>
+            <p class="max-w-2xl mx-auto text-base sm:text-lg text-brand-200 leading-relaxed">Tap any module below to see a working preview of how PodVet keeps your clinic running: appointments, vaccinations, clients, medical records, inventory, reporting and client messaging.</p>
+        </div>
+    </section>
+
+    <!-- DEMO TAB BAR -->
+    <div class="sticky top-20 z-30 bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-2" id="demo-tabs">
+            <button class="demo-tab-btn active px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-brand-800 text-white border border-brand-300/40 shadow-sm transition flex items-center gap-2" data-tab="appointments"><i class="fa-solid fa-calendar-check"></i> Appointments</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="vaccinations"><i class="fa-solid fa-syringe"></i> Vaccinations</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="clients"><i class="fa-solid fa-address-book"></i> Client Records</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="medical"><i class="fa-solid fa-notes-medical"></i> Medical Records</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="inventory"><i class="fa-solid fa-boxes-stacked"></i> Inventory</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="reporting"><i class="fa-solid fa-chart-line"></i> Reporting</button>
+            <button class="demo-tab-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200 hover:border-brand-400 transition flex items-center gap-2" data-tab="messaging"><i class="fa-brands fa-whatsapp"></i> SMS & WhatsApp</button>
+        </div>
+    </div>
+
+    <main class="py-12 bg-brand-surface">
+
+        <!-- APPOINTMENTS -->
+        <section id="tab-appointments" class="demo-panel max-w-6xl mx-auto px-4">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-calendar-check text-brand-700"></i> Today's appointments <span class="text-xs font-semibold text-brand-800 bg-brand-100 px-2.5 py-1 rounded-full">June 20, 2026</span></h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Scheduled today</p><p class="text-2xl font-extrabold text-brand-900">24</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Pending</p><p class="text-2xl font-extrabold text-amber-600">8</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Vaccinations due</p><p class="text-2xl font-extrabold text-emerald-600">12</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">No-shows today</p><p class="text-2xl font-extrabold text-rose-600">3</p></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between">
+                    <span class="font-bold text-sm"><i class="fa-solid fa-hospital mr-2"></i>Main Clinic &mdash; Daily Flowboard</span>
+                    <span class="hidden sm:flex items-center gap-2 text-xs text-brand-200"><i class="fa-solid fa-magnifying-glass"></i> search patient or client</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th class="px-4 py-3">Time</th><th class="px-4 py-3">Patient</th><th class="px-4 py-3">Owner</th><th class="px-4 py-3">Vet</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th>
+                        </tr></thead>
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr><td class="px-4 py-3 font-semibold">09:00</td><td class="px-4 py-3">Leo <span class="text-xs text-gray-400">(Golden Retriever)</span></td><td class="px-4 py-3">Adam Jansone</td><td class="px-4 py-3">Dr. Emre</td><td class="px-4 py-3">Vaccination</td><td class="px-4 py-3"><span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Checked in</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">09:30</td><td class="px-4 py-3">Milo <span class="text-xs text-gray-400">(Border Collie)</span></td><td class="px-4 py-3">Sarah Kim</td><td class="px-4 py-3">Dr. Sana</td><td class="px-4 py-3">Check-up</td><td class="px-4 py-3"><span class="text-xs bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">In room 2</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">10:00</td><td class="px-4 py-3">Bella <span class="text-xs text-gray-400">(Beagle)</span></td><td class="px-4 py-3">Maria Silva</td><td class="px-4 py-3">Dr. Demet</td><td class="px-4 py-3">Dental clean</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Waiting</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">10:30</td><td class="px-4 py-3">Rocky <span class="text-xs text-gray-400">(Rottweiler)</span></td><td class="px-4 py-3">Omar Fayez</td><td class="px-4 py-3">Dr. Emre</td><td class="px-4 py-3">Wound care</td><td class="px-4 py-3"><span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">No-show</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">11:00</td><td class="px-4 py-3">Coco <span class="text-xs text-gray-400">(Persian Cat)</span></td><td class="px-4 py-3">Nadia Haddad</td><td class="px-4 py-3">Dr. Ceren</td><td class="px-4 py-3">Skin consult</td><td class="px-4 py-3"><span class="text-xs bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">In room 1</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-200 flex flex-wrap gap-2">
+                    <button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-full font-semibold hover:bg-brand-700 transition"><i class="fa-solid fa-plus"></i> New appointment</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-diagram-project"></i> Auto-scheduler</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-bell"></i> Send reminders</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VACCINATIONS -->
+        <section id="tab-vaccinations" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-syringe text-brand-700"></i> Vaccination tracker</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Due this week</p><p class="text-2xl font-extrabold text-amber-600">12</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Overdue</p><p class="text-2xl font-extrabold text-rose-600">5</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Given this month</p><p class="text-2xl font-extrabold text-emerald-600">96</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Reminder success</p><p class="text-2xl font-extrabold text-brand-900">94%</p></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between">
+                    <span class="font-bold text-sm"><i class="fa-solid fa-syringe mr-2"></i>Upcoming &amp; overdue boosters</span>
+                    <span class="hidden sm:block text-xs text-brand-200">auto reminders run daily at 08:00</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th class="px-4 py-3">Patient</th><th class="px-4 py-3">Vaccine</th><th class="px-4 py-3">Next due</th><th class="px-4 py-3">Owner</th><th class="px-4 py-3">Status</th>
+                        </tr></thead>
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr><td class="px-4 py-3 font-semibold">Leo</td><td class="px-4 py-3">DHPP booster</td><td class="px-4 py-3">In 3 days</td><td class="px-4 py-3">Adam Jansone</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Due soon</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Bella</td><td class="px-4 py-3">Rabies</td><td class="px-4 py-3">Overdue 9d</td><td class="px-4 py-3">Maria Silva</td><td class="px-4 py-3"><span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Overdue</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Milo</td><td class="px-4 py-3">Parvovirus (FVRCP)</td><td class="px-4 py-3">1 month</td><td class="px-4 py-3">Sarah Kim</td><td class="px-4 py-3"><span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">On track</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Coco</td><td class="px-4 py-3">FVRCP + leukemia</td><td class="px-4 py-3">2 months</td><td class="px-4 py-3">Nadia Haddad</td><td class="px-4 py-3"><span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">On track</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Rocky</td><td class="px-4 py-3">DHPP booster</td><td class="px-4 py-3">In 5 days</td><td class="px-4 py-3">Omar Fayez</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Due soon</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-200 text-xs text-gray-500"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>Reminders for 12 due pets were sent by SMS and WhatsApp at 08:00 today.</div>
+            </div>
+        </section>
+
+        <!-- CLIENT RECORDS -->
+        <section id="tab-clients" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-address-book text-brand-700"></i> Client &amp; patient directory</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Total clients</p><p class="text-2xl font-extrabold text-brand-900">1,240</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Active this month</p><p class="text-2xl font-extrabold text-emerald-600">1,114</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Clients with pets</p><p class="text-2xl font-extrabold text-amber-600">1,032</p></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between">
+                    <span class="font-bold text-sm"><i class="fa-solid fa-users mr-2"></i>Recent clients</span>
+                    <span class="hidden sm:block text-xs text-brand-200">click a row to open the full family profile</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th class="px-4 py-3">Client</th><th class="px-4 py-3">Phone</th><th class="px-4 py-3">Pets</th><th class="px-4 py-3">Balance</th><th class="px-4 py-3">Last visit</th>
+                        </tr></thead>
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr class="hover:bg-brand-50 cursor-pointer"><td class="px-4 py-3 font-semibold">Adam Jansone</td><td class="px-4 py-3">+371 2 555 01 01</td><td class="px-4 py-3">Leo</td><td class="px-4 py-3 text-emerald-600">Rs 0</td><td class="px-4 py-3">Today</td></tr>
+                            <tr class="hover:bg-brand-50 cursor-pointer"><td class="px-4 py-3 font-semibold">Sarah Kim</td><td class="px-4 py-3">+82 10 5555 0202</td><td class="px-4 py-3">Milo, Lola</td><td class="px-4 py-3 text-rose-600">Rs 2,400</td><td class="px-4 py-3">Today</td></tr>
+                            <tr class="hover:bg-brand-50 cursor-pointer"><td class="px-4 py-3 font-semibold">Maria Silva</td><td class="px-4 py-3">+351 912 555 030</td><td class="px-4 py-3">Bella</td><td class="px-4 py-3 text-emerald-600">Rs 0</td><td class="px-4 py-3">Tue</td></tr>
+                            <tr class="hover:bg-brand-50 cursor-pointer"><td class="px-4 py-3 font-semibold">Omar Fayez</td><td class="px-4 py-3">+971 50 555 0404</td><td class="px-4 py-3">Rocky, Dusty</td><td class="px-4 py-3 text-rose-600">Rs 1,100</td><td class="px-4 py-3">Tue</td></tr>
+                            <tr class="hover:bg-brand-50 cursor-pointer"><td class="px-4 py-3 font-semibold">Nadia Haddad</td><td class="px-4 py-3">+961 70 555 050</td><td class="px-4 py-3">Coco</td><td class="px-4 py-3 text-emerald-600">Rs 0</td><td class="px-4 py-3">Mon</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-200 flex flex-wrap gap-2">
+                    <button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-full font-semibold hover:bg-brand-700 transition"><i class="fa-solid fa-user-plus"></i> Add client</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-paw"></i> Add pet</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- MEDICAL RECORDS -->
+        <section id="tab-medical" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-notes-medical text-brand-700"></i> Medical records &amp; SOAP notes</h2>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center font-extrabold text-sm">L</div>
+                    <div><p class="font-bold text-sm">Leo &middot; Golden Retriever &middot; 4y &middot; M</p><p class="text-xs text-brand-200">Owner: Adam Jansone</p></div>
+                    <span class="ml-auto hidden sm:inline text-xs bg-brand-800 px-2 py-0.5 rounded-full text-brand-100">Record #12,431</span>
+                </div>
+                <div class="p-4 sm:p-6">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                        <div class="bg-brand-50 border border-brand-100 rounded-xl p-3"><p class="text-[10px] uppercase text-gray-500">Last visit</p><p class="text-sm font-bold text-gray-800">Jun 20, 2026</p></div>
+                        <div class="bg-brand-50 border border-brand-100 rounded-xl p-3"><p class="text-[10px] uppercase text-gray-500">Weight</p><p class="text-sm font-bold text-gray-800">34.2 kg</p></div>
+                        <div class="bg-brand-50 border border-brand-100 rounded-xl p-3"><p class="text-[10px] uppercase text-gray-500">Next due</p><p class="text-sm font-bold text-amber-700">Vaccination</p></div>
+                        <div class="bg-brand-50 border border-brand-100 rounded-xl p-3"><p class="text-[10px] uppercase text-gray-500">Status</p><p class="text-sm font-bold text-emerald-700">Healthy</p></div>
+                    </div>
+                    <div class="rounded-xl border border-gray-200 p-4 bg-gray-50 mb-5">
+                        <p class="text-xs font-bold text-brand-800 uppercase tracking-wider mb-3"><i class="fa-solid fa-file-medical mr-1"></i> Today's SOAP note &mdash; Dr. Emre</p>
+                        <div class="grid sm:grid-cols-2 gap-3 text-sm text-gray-700">
+                            <div><p class="text-xs font-semibold text-gray-500 mb-1">Subjective</p>Owner reports mild itchiness on the left ear for 2 days.</div>
+                            <div><p class="text-xs font-semibold text-gray-500 mb-1">Objective</p>T 38.4 &middot; HR 92 &middot; slight redness in ear canal, mild discharge.</div>
+                            <div><p class="text-xs font-semibold text-gray-500 mb-1">Assessment</p>Mild otitis externa &mdash; no perforation.</div>
+                            <div><p class="text-xs font-semibold text-gray-500 mb-1">Plan</p>Ear cleaner 7 days, recheck in 10 days if needed. Reminder sent.</div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                                <th class="px-4 py-3">Date</th><th class="px-4 py-3">Type</th><th class="px-4 py-3">Vet</th><th class="px-4 py-3">Summary</th>
+                            </tr></thead>
+                            <tbody class="text-gray-700 divide-y divide-gray-100">
+                                <tr><td class="px-4 py-3">Jun 10, 2026</td><td class="px-4 py-3">Vaccination</td><td class="px-4 py-3">Dr. Sana</td><td class="px-4 py-3">DHPP booster administered, no reaction.</td></tr>
+                                <tr><td class="px-4 py-3">May 02, 2026</td><td class="px-4 py-3">Check-up</td><td class="px-4 py-3">Dr. Emre</td><td class="px-4 py-3">Annual wellness panel, all normal.</td></tr>
+                                <tr><td class="px-4 py-3">Feb 14, 2026</td><td class="px-4 py-3">Treatment</td><td class="px-4 py-3">Dr. Ceren</td><td class="px-4 py-3">Tick removal &amp; wound flush.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVENTORY -->
+        <section id="tab-inventory" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-boxes-stacked text-brand-700"></i> Inventory &amp; stock alerts</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Products tracked</p><p class="text-2xl font-extrabold text-brand-900">342</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Low stock</p><p class="text-2xl font-extrabold text-amber-600">8</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Expiring soon</p><p class="text-2xl font-extrabold text-rose-600">5</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Stock value</p><p class="text-2xl font-extrabold text-emerald-600">Rs 1.42M</p></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between">
+                    <span class="font-bold text-sm"><i class="fa-solid fa-boxes-stacked mr-2"></i>Products needing attention</span>
+                    <span class="hidden sm:block text-xs text-brand-200">linked to invoicing &mdash; stock deducts on sale</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th class="px-4 py-3">Product</th><th class="px-4 py-3">Stock</th><th class="px-4 py-3">Low</th><th class="px-4 py-3">Expiry</th><th class="px-4 py-3">Status</th>
+                        </tr></thead>
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr><td class="px-4 py-3 font-semibold">Bravecto 20-40kg</td><td class="px-4 py-3">3</td><td class="px-4 py-3">10</td><td class="px-4 py-3">Mar 2027</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Low stock</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Rabies vaccine 1ml</td><td class="px-4 py-3">9</td><td class="px-4 py-3">20</td><td class="px-4 py-3">Aug 2026</td><td class="px-4 py-3"><span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Low stock</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Antiseptic wound wash</td><td class="px-4 py-3">14</td><td class="px-4 py-3">5</td><td class="px-4 py-3">Oct 2026</td><td class="px-4 py-3"><span class="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Expiring soon</span></td></tr>
+                            <tr><td class="px-4 py-3 font-semibold">Prescription diet kibble</td><td class="px-4 py-3">22</td><td class="px-4 py-3">8</td><td class="px-4 py-3">Jan 2027</td><td class="px-4 py-3"><span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">In stock</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-200 flex flex-wrap gap-2">
+                    <button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-full font-semibold hover:bg-brand-700 transition"><i class="fa-solid fa-cart-plus"></i> Purchase order</button>
+                    <button class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium hover:bg-gray-200 transition"><i class="fa-solid fa-arrow-up-from-bracket"></i> Export stock list</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- REPORTING -->
+        <section id="tab-reporting" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-line text-brand-700"></i> Practice reporting</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Revenue (June, month to date)</p><p class="text-2xl font-extrabold text-emerald-600">Rs 214,500</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Appointments</p><p class="text-2xl font-extrabold text-brand-900">620</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">New patients</p><p class="text-2xl font-extrabold text-brand-900">148</p></div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-4"><p class="text-xs text-gray-500">Avg per day</p><p class="text-2xl font-extrabold text-amber-600">28</p></div>
+            </div>
+            <div class="grid lg:grid-cols-5 gap-4">
+                <div class="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <p class="text-sm font-bold text-gray-900 mb-4"><i class="fa-solid fa-chart-column text-brand-700 mr-2"></i>Revenue last 6 months (Rs &rsquo;000)</p>
+                    <div class="flex items-end justify-between gap-3 h-44">
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-20"></div></div><span class="text-xs text-gray-500">Jan</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-24"></div></div><span class="text-xs text-gray-500">Feb</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-16"></div></div><span class="text-xs text-gray-500">Mar</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-32"></div></div><span class="text-xs text-gray-500">Apr</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-28"></div></div><span class="text-xs text-gray-500">May</span></div>
+                        <div class="flex-1 flex flex-col items-center gap-1"><div class="w-full bg-gray-100"><div class="bar h-40"></div></div><span class="text-xs text-gray-500">Jun</span></div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <p class="text-sm font-bold text-gray-900 px-5 pt-5 pb-2"><i class="fa-solid fa-ranking-star text-brand-700 mr-2"></i>Top services this month</p>
+                    <table class="w-full text-sm">
+                        <tbody class="text-gray-700 divide-y divide-gray-100">
+                            <tr><td class="px-5 py-3">Vaccinations</td><td class="px-5 py-3 text-right font-semibold">96</td></tr>
+                            <tr><td class="px-5 py-3">Health check-ups</td><td class="px-5 py-3 text-right font-semibold">78</td></tr>
+                            <tr><td class="px-5 py-3">Dental cleaning</td><td class="px-5 py-3 text-right font-semibold">41</td></tr>
+                            <tr><td class="px-5 py-3">Grooming</td><td class="px-5 py-3 text-right font-semibold">35</td></tr>
+                            <tr><td class="px-5 py-3">Lab panels</td><td class="px-5 py-3 text-right font-semibold">22</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="px-5 py-3 border-t border-gray-200">
+                        <p class="text-xs text-gray-500"><i class="fa-solid fa-file-arrow-down text-brand-600 mr-1"></i>Export to bank-ready reports &mdash; one click</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SMS & WHATSAPP -->
+        <section id="tab-messaging" class="demo-panel max-w-6xl mx-auto px-4 hidden">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-brands fa-whatsapp text-brand-700"></i> Client messaging &mdash; SMS &amp; WhatsApp</h2>
+            <div class="grid lg:grid-cols-5 gap-4">
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-fit">
+                    <div class="bg-brand-900 text-white px-4 py-3"><span class="font-bold text-sm"><i class="fa-solid fa-comments mr-2"></i>Recent conversations</span></div>
+                    <ul class="divide-y divide-gray-100 text-sm">
+                        <li class="px-4 py-3 flex items-center gap-3 hover:bg-brand-50 cursor-pointer">
+                            <div class="w-9 h-9 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center font-bold text-xs">AJ</div>
+                            <div class="flex-1 min-w-0"><p class="font-semibold text-gray-800">Adam Jansone</p><p class="text-xs text-gray-500 truncate">"Reminder: Leo's DHPP booster is due on Jun 23."</p></div>
+                            <span class="text-[10px] text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check"></i> Sent</span>
+                        </li>
+                        <li class="px-4 py-3 flex items-center gap-3 hover:bg-brand-50 cursor-pointer">
+                            <div class="w-9 h-9 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center font-bold text-xs">SK</div>
+                            <div class="flex-1 min-w-0"><p class="font-semibold text-gray-800">Sarah Kim</p><p class="text-xs text-gray-500 truncate">"Invoice Rs 2,400 is pending. Pay online via link?"</p></div>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">Delivered</span>
+                        </li>
+                        <li class="px-4 py-3 flex items-center gap-3 hover:bg-brand-50 cursor-pointer">
+                            <div class="w-9 h-9 rounded-full bg-brand-100 text-brand-800 flex items-center justify-center font-bold text-xs">MS</div>
+                            <div class="flex-1 min-w-0"><p class="font-semibold text-gray-800">Maria Silva</p><p class="text-xs text-gray-500 truncate">"Thank you! Bella loved her dental clean &#128512;"</p></div>
+                            <span class="text-[10px] text-gray-400 font-semibold">Replied</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="lg:col-span-3 bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <p class="text-sm font-bold text-gray-900 mb-3"><i class="fa-solid fa-bullhorn text-brand-700 mr-2"></i>Compose a reminder</p>
+                    <div class="flex flex-wrap gap-3">
+                        <span class="text-xs font-bold text-gray-500 self-center">Template:</span>
+                        <button class="text-xs bg-brand-50 border border-brand-200 text-brand-800 px-3 py-1.5 rounded-full font-medium hover:bg-brand-100 transition"><i class="fa-solid fa-syringe"></i> Vaccination due</button>
+                        <button class="text-xs bg-brand-50 border border-brand-200 text-brand-800 px-3 py-1.5 rounded-full font-medium hover:bg-brand-100 transition"><i class="fa-solid fa-user-clock"></i> Appointment reminder</button>
+                        <button class="text-xs bg-brand-50 border border-brand-200 text-brand-800 px-3 py-1.5 rounded-full font-medium hover:bg-brand-100 transition"><i class="fa-solid fa-file-invoice-dollar"></i> Invoice follow-up</button>
+                    </div>
+                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                        <p class="text-xs font-semibold text-gray-500 mb-2">WhatsApp / SMS preview</p>
+                        <p>Hi {client}, this is a friendly reminder that {pet}'s <strong>DHPP booster is due in 3 days</strong>. Reply to book a time or tap below to schedule online. &mdash; Main Clinic</p>
+                        <div class="mt-3 flex gap-2">
+                            <button class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-full font-semibold"><i class="fa-brands fa-whatsapp"></i> Send via WhatsApp</button>
+                            <button class="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-full font-semibold"><i class="fa-solid fa-message"></i> Send via SMS</button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-3"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>Delivery receipts &amp; opt-out handling are automatic. Clients can reply and the thread stays attached to their file.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-brand-950 text-brand-200">
+        <div class="max-w-6xl mx-auto px-4 py-12">
+            <div class="flex flex-col sm:flex-row justify-between gap-6 mb-8">
+                <div class="max-w-sm">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain mb-3">
+                    <p class="text-xs leading-relaxed text-brand-200/70">AI-driven veterinary clinic management &mdash; appointments, records, invoicing and reminders in one place.</p>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/" class="block hover:text-white transition">Home</a>
+                    <a href="/#pricing" class="block hover:text-white transition">Pricing</a>
+                    <a href="/about" class="block hover:text-white transition">About</a>
+                    <a href="/contact" class="block hover:text-white transition">Contact</a>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/blog" class="block hover:text-white transition">Blog</a>
+                    <a href="/docs" class="block hover:text-white transition">Documentation</a>
+                    <a href="/help" class="block hover:text-white transition">Help Center</a>
+                    <a href="/faq" class="block hover:text-white transition">FAQ</a>
+                    <a href="/privacy" class="block hover:text-white transition">Privacy</a>
+                    <a href="/terms" class="block hover:text-white transition">Terms</a>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-brand-200/60 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-brand-800/50">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <a href="/app" class="hover:text-white transition">Open the live app <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            var tabs = document.querySelectorAll('.demo-tab-btn');
+            var panels = document.querySelectorAll('.demo-panel');
+            function show(name) {
+                panels.forEach(function (p) { p.classList.toggle('hidden', p.id !== 'tab-' + name); });
+                tabs.forEach(function (t) {
+                    var on = t.getAttribute('data-tab') === name;
+                    t.classList.toggle('active', on);
+                    t.classList.toggle('bg-gray-100', !on);
+                    t.classList.toggle('text-gray-600', !on);
+                    t.classList.toggle('border-gray-200', !on);
+                    t.classList.toggle('text-white', on);
+                });
+                if (history.replaceState) { try { history.replaceState(null, '', '#demo-' + name); } catch (e) {} }
+            }
+            tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.getAttribute('data-tab')); }); });
+            var fromHash = (location.hash || '').replace('#demo-', '').replace('#', '');
+            if (fromHash && document.querySelector('[data-tab="' + fromHash + '"]')) show(fromHash);
+        })();
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

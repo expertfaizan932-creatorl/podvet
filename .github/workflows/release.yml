@@ -1,0 +1,41 @@
+name: Release desktop app
+
+# Builds the Windows installer on a runner and pushes it to the website's
+# auto-update feed, from where every installed copy downloads it. Run it from
+# the Actions tab after bumping "version" in package.json - or just use
+# 'npm run release' locally, which does the same thing.
+#
+# Needs one repo secret: UPDATES_PUBLISH_TOKEN (the value of
+# UPDATES_PUBLISH_TOKEN in /opt/podvet/.env on the VPS).
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Cache bundled MySQL + Electron
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-${{ runner.os }}-${{ hashFiles('scripts/fetch-mysql.ps1', 'scripts/fetch-electron.ps1') }}
+
+      - name: Build installer
+        run: npm run dist
+
+      - name: Publish to the update feed
+        shell: pwsh
+        env:
+          UPDATES_PUBLISH_TOKEN: ${{ secrets.UPDATES_PUBLISH_TOKEN }}
+        run: ./scripts/release.ps1 -SkipBuild

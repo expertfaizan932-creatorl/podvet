@@ -31,6 +31,24 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Password-reset codes. Platform-level (never cloned into a clinic database):
+-- the code is looked up by the owner's email, which lives in the platform
+-- `users` table. Only the HASH of the code is stored, so a leaked table read
+-- must not hand an attacker working reset codes. `expires_at` is enforced in
+-- the query rather than by a sweeper job, so there is nothing to keep running.
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_password_resets_email (email),
+    INDEX idx_password_resets_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- â”€â”€ Clinic-level tables (clone target for podvet_clinic_<id>) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS clinic_settings (
@@ -40,6 +58,14 @@ CREATE TABLE IF NOT EXISTS clinic_settings (
     logo_url VARCHAR(500),
     address TEXT,
     phone VARCHAR(50),
+    -- White-label extras. `tagline` is the italic line under the masthead on
+    -- every generated document; `powered_by` is the vendor footer on invoices,
+    -- expense reports, POS/lab slips and the app sidebar. Both default to
+    -- NULL (i.e. "print nothing") so a clinic that never fills them in gets no
+    -- vendor attribution at all -- these used to be hardcoded strings
+    -- ("Powered by Parkar Technologies LLC." on every document).
+    tagline VARCHAR(255) DEFAULT NULL,
+    powered_by VARCHAR(255) DEFAULT NULL,
     group_products_on_invoice TINYINT(1) NOT NULL DEFAULT 0,
     bank_name VARCHAR(255) DEFAULT NULL,
     bank_account_number VARCHAR(100) DEFAULT NULL,
@@ -96,6 +122,10 @@ CREATE TABLE IF NOT EXISTS employees (
     salary DECIMAL(12,2) DEFAULT 0,
     contact VARCHAR(50),
     joined_on DATE,
+    -- JSON array of { platform, url } links (Instagram/Facebook/LinkedIn/
+    -- Twitter/WhatsApp/Website). TEXT rather than a JSON column so a stray
+    -- non-JSON value can never make an employee write fail.
+    social_links TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -147,6 +177,32 @@ CREATE TABLE IF NOT EXISTS vendor_settlements (
     clinic_share DECIMAL(12,2) DEFAULT 0,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Stock bought from a vendor (as opposed to vendor_settlements, which is what
+-- consignment sales owe). Recording a purchase adds its linked products'
+-- quantity back to inventory; deleting it takes that stock back out.
+CREATE TABLE IF NOT EXISTS vendor_purchases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    vendor_id INT NOT NULL,
+    purchase_date DATE NOT NULL,
+    payment_status VARCHAR(20) DEFAULT 'paid',
+    total_amount DECIMAL(12,2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_vendor_purchases_vendor (vendor_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS vendor_purchase_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    purchase_id INT NOT NULL,
+    product_id INT DEFAULT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(12,2) DEFAULT 0,
+    line_total DECIMAL(12,2) DEFAULT 0,
+    KEY idx_vendor_purchase_items_purchase (purchase_id),
+    FOREIGN KEY (purchase_id) REFERENCES vendor_purchases(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS coupons (

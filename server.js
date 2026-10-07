@@ -2,10 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const { AsyncLocalStorage } = require('async_hooks');
 const { ensureSuperAdminSchema, bootstrapSuperAdmin, registerSuperAdmin, authenticatePlatformAdmin } = require('./lib/superAdmin');
 const { registerSuperAdminExt } = require('./lib/superAdminExt');
+const { sendMail } = require('./lib/mailer');
 
 // Subscription policy: every new clinic gets ONE free month, then pays
 // MONTHLY_PRICE per month. A valid referral code is optional at signup and
@@ -36,6 +39,94 @@ if (!uploadsDir) {
 }
 uploadsDir = path.resolve(uploadsDir);
 app.use('/uploaded', express.static(uploadsDir));
+
+// ── Desktop auto-update feed ────────────────────────────────────────────────
+// An installed PodVet polls /updates/latest.yml and downloads the installer
+// that file points at, both from this directory. scripts/release.ps1 (and the
+// Release GitHub workflow) publish a new build with:
+//
+//   POST /updates/publish?file=<name>&t=<UPDATES_PUBLISH_TOKEN>   (raw bytes)
+//
+// The token only exists where setup-server.sh writes it into .env, so a
+// desktop install - which never sets UPDATES_PUBLISH_TOKEN - exposes no
+// upload path at all, and without a token the route answers 404.
+const UPDATES_DIR = path.join(__dirname, 'updates');
+const UPDATES_TOKEN = process.env.UPDATES_PUBLISH_TOKEN || '';
+try { fs.mkdirSync(UPDATES_DIR, { recursive: true }); } catch (_) { /* read-only install */ }
+
+// Registered before the static mount: serve-static only lets non-GET through
+// when it falls through, and the feed itself must fall through so a missing
+// file can answer 404 below instead of the SPA shell.
+app.post('/updates/publish', (req, res) => {
+  const fail = (status, message) => res.status(status).json({ ok: false, error: message });
+  if (!UPDATES_TOKEN) return fail(404, 'Publishing is not enabled on this server.');
+  const presented = Buffer.from(String(req.query.t || ''));
+  const expected = Buffer.from(UPDATES_TOKEN);
+  if (presented.length !== expected.length || !crypto.timingSafeEqual(presented, expected)) {
+    return fail(403, 'Bad publish token.');
+  }
+  const name = path.basename(String(req.query.file || ''));
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.(?:yml|exe|blockmap)$/.test(name)) {
+    return fail(400, 'Unsupported file name.');
+  }
+
+  // Stream straight to disk: the installer is ~130 MB, too much to buffer.
+  const tmp = path.join(UPDATES_DIR, `${name}.uploading`);
+  const out = fs.createWriteStream(tmp);
+  let bytes = 0;
+  let settled = false;
+  const cleanup = () => { try { fs.rmSync(tmp, { force: true }); } catch (_) { /* already gone */ } };
+  const done = (status, body) => { if (!settled) { settled = true; res.status(status).json(body); } };
+
+  req.on('data', (chunk) => { bytes += chunk.length; });
+  req.on('error', () => { out.destroy(); cleanup(); done(499, { ok: false, error: 'Upload interrupted.' }); });
+  out.on('error', (err) => { console.error('[updates] publish write failed:', err.message); cleanup(); done(500, { ok: false, error: 'Could not store the file.' }); });
+  out.on('finish', () => {
+    if (bytes === 0) { cleanup(); return done(400, { ok: false, error: 'Empty body.' }); }
+    try {
+      fs.renameSync(tmp, path.join(UPDATES_DIR, name));
+    } catch (err) {
+      console.error('[updates] publish rename failed:', err.message);
+      cleanup();
+      return done(500, { ok: false, error: 'Could not store the file.' });
+    }
+    console.log(`[updates] published ${name} (${bytes} bytes)`);
+    done(200, { ok: true, file: name, size: bytes });
+  });
+  req.pipe(out);
+});
+
+app.use('/updates', express.static(UPDATES_DIR, {
+  setHeaders(res, filePath) {
+    // latest.yml is what decides "is there a newer version" - a proxy must
+    // never answer that question from its own cache.
+    if (filePath.endsWith('.yml')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
+// Anything else under /updates is a missing feed file. Without this it falls
+// through to the SPA catch-all, which answers 200 with index.html - YAML that
+// is actually an HTML page.
+app.use('/updates', (req, res) => {
+  res.status(404).type('text/plain').send('Not found');
+});
+
+// Writes a `data:image/...;base64,...` payload into the uploads folder and
+// returns the public /uploaded/<file> URL for it. The signup form hands the
+// clinic's logo to POST /api/clinics as a data URL (it has no local filesystem
+// to write into), so the logo is materialised here at clinic-creation time
+// instead of being discarded — previously a new clinic always came up with a
+// NULL logo_url and fell back to the platform logo everywhere.
+// The real image extension matters: generate_invoice.js's addLogo() derives the
+// format jsPDF needs from the file extension, so a generic .bin would silently
+// break the logo on every generated document.
+function saveDataUrlImage(dataUrl, prefix) {
+  const m = /^data:image\/(png|jpe?g|webp|gif);base64,([\s\S]+)$/i.exec(String(dataUrl || ''));
+  if (!m) return null;
+  const ext = m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
+  const name = `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, name), Buffer.from(m[2], 'base64'));
+  return `/uploaded/${name}`;
+}
 
 // If MySQL isn't reachable yet (startup retry, or env vars missing), return a
 // readable 503 instead of crashing the process with `null.query`.
@@ -115,6 +206,8 @@ async function openClinicConn(clinicId) {
   await dedupeClinicSeedRows(conn, clinicId);
   try { await ensureClinicSettingsColumns(conn); }
   catch (e) { console.error('ensureClinicSettingsColumns (clinic) failed:', e.message); }
+  try { await ensureFeatureSchema(conn); }
+  catch (e) { console.error('ensureFeatureSchema (clinic) failed:', e.message); }
   return conn;
 }
 
@@ -165,6 +258,20 @@ function getClinicConn(clinicId) {
     clinicConns.set(clinicId, entry);
   }
   return Promise.resolve(entry.proxy);
+}
+
+// Super admin deleting a clinic drops its per-clinic database, so any pooled
+// connection held for it has to be closed and evicted. A stale entry left in
+// clinicConns would be handed out again on the next request and fail with
+// ER_NO_DB, and it would also keep the dropped schema pinned open.
+async function closeClinicConn(clinicId) {
+  clinicId = Number(clinicId) || 1;
+  const entry = clinicConns.get(clinicId);
+  if (!entry) return;
+  clinicConns.delete(clinicId);
+  const c = entry.c;
+  entry.c = null;
+  if (c) { try { await c.end(); } catch (_) {} }
 }
 
 // `db` routes every query to the current request's clinic database (from the
@@ -418,6 +525,10 @@ const CLINIC_SETTINGS_COLS = [
   ['pos_show_address', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['pos_show_bank_details', 'TINYINT(1) NOT NULL DEFAULT 0'],
   ['pos_header_show_clinic_name', 'TINYINT(1) NOT NULL DEFAULT 1'],
+  // White-label: the masthead tagline and the vendor footer on documents. NULL
+  // means "print nothing" -- see the column comments in db/schema.sql.
+  ['tagline', 'VARCHAR(255) DEFAULT NULL'],
+  ['powered_by', 'VARCHAR(255) DEFAULT NULL'],
 ];
 
 // `conn` must already be connected to the target database; TABLE_SCHEMA is
@@ -439,11 +550,55 @@ async function ensureClinicSettingsColumns(conn) {
   }
 }
 
+// Columns and tables added after a clinic database already existed. Clinic
+// databases are cloned from the platform DB at creation (createClinicDatabase),
+// so running these on the platform connection gives every NEW clinic the same
+// shape; openClinicConn runs them on first touch to repair the ones that
+// predate the feature.
+async function ensureFeatureSchema(conn) {
+  // Employees keep their social profiles as a JSON array of {platform, url}.
+  const [[empCols]] = await conn.query(
+    'SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',
+    ['employees', 'social_links']);
+  if (!empCols.n) {
+    try { await conn.query('ALTER TABLE employees ADD COLUMN social_links TEXT DEFAULT NULL'); }
+    catch (err) { console.error('ensureFeatureSchema employees.social_links skip', err.message); }
+  }
+  // Vendor purchases (stock bought from a vendor) — two tables, so the items
+  // can be listed/reversed without re-parsing a notes blob.
+  try {
+    await conn.query(`CREATE TABLE IF NOT EXISTS vendor_purchases (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      vendor_id INT NOT NULL,
+      purchase_date DATE NOT NULL,
+      payment_status VARCHAR(20) DEFAULT 'paid',
+      total_amount DECIMAL(12,2) DEFAULT 0,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_vendor_purchases_vendor (vendor_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS vendor_purchase_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      purchase_id INT NOT NULL,
+      product_id INT DEFAULT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      unit_price DECIMAL(12,2) DEFAULT 0,
+      line_total DECIMAL(12,2) DEFAULT 0,
+      KEY idx_vendor_purchase_items_purchase (purchase_id),
+      FOREIGN KEY (purchase_id) REFERENCES vendor_purchases(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  } catch (err) { console.error('ensureFeatureSchema vendor purchases failed:', err.message); }
+}
+
 async function ensurePlatformSchema() {
   // Soap-note columns must be added FIRST and independently: the ALTER block
   // below throws on pre-existing index names (uclinics/referrals/employees),
   // which would abort this whole function before reaching the column migration.
   try { await ensureSoapNoteColumns(); } catch (e) { console.error('ensureSoapNoteColumns failed:', e.message); }
+  // Feature columns/tables (employees.social_links, vendor purchases) must also
+  // exist on the platform DB before createClinicDatabase clones it.
+  try { await ensureFeatureSchema(platConn); } catch (e) { console.error('ensureFeatureSchema failed:', e.message); }
   // Same treatment for clinic_settings, and it has to run on the platform DB
   // anyway: createClinicDatabase clones each table with SHOW CREATE TABLE, so
   // repairing clinic 1's table here is what gives every newly created clinic
@@ -487,6 +642,30 @@ async function ensurePlatformSchema() {
   const [refIdx] = await platConn.query(`SELECT COUNT(*) AS n FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='referrals' AND INDEX_NAME='uq_referral_code'`);
   if (!refIdx[0].n) await platConn.query('ALTER TABLE referrals ADD UNIQUE INDEX uq_referral_code (code)');
+  // Staff invitations. The "Add User" modal in Employees > Users no longer sets a
+  // username/password itself - it mails an invitation and the invitee picks
+  // their own credentials on the accept page. /api/invitations used to be four
+  // stubs that answered {success:true} without touching a database, so an
+  // invite was never recorded, never listed, and the handler's toLegacyInvitation
+  // call threw on the missing row ("Cannot read properties of undefined").
+  // One live invitation per email per clinic: re-inviting someone who is
+  // already pending just refreshes the existing row instead of erroring on a
+  // duplicate, which is what a clinic admin expects when they hit resend.
+  await platConn.query(`CREATE TABLE IF NOT EXISTS invitations (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    clinic_id INT NOT NULL DEFAULT 1,
+    email VARCHAR(255) NOT NULL,
+    role ENUM('OWNER','ADMIN','USER') NOT NULL DEFAULT 'USER',
+    designation VARCHAR(120) DEFAULT NULL,
+    branch_id INT DEFAULT NULL,
+    invited_by INT DEFAULT NULL,
+    token VARCHAR(80) NOT NULL,
+    status ENUM('pending','accepted','revoked') NOT NULL DEFAULT 'pending',
+    expires_at DATETIME NOT NULL,
+    accepted_at DATETIME NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_invitation (clinic_id, email)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   // Idempotent column migrations for pre-existing databases.
   for (const [table, column, ddl] of [
     ['referrals', 'discount_amount', 'ALTER TABLE referrals ADD COLUMN discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER redeemed_by'],
@@ -587,7 +766,11 @@ async function ensureSoapNoteColumns() {
   }
 }
 
-async function createClinicDatabase(clinicId, clinicName) {
+// `branding` carries whatever the signup form collected (logo URL, address,
+// phone, colour, tagline, powered-by). It is written into the fresh clinic's
+// single clinic_settings row so a brand-new clinic opens already branded
+// instead of showing the platform's logo/name until someone visits Settings.
+async function createClinicDatabase(clinicId, clinicName, branding = {}) {
   const admin = await mysql.createConnection({ ...DB_OPTS });
   try {
     await admin.query(`CREATE DATABASE IF NOT EXISTS \`${CLINIC_PREFIX}${clinicId}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
@@ -599,6 +782,7 @@ async function createClinicDatabase(clinicId, clinicName) {
     const PLATFORM_TABLES = new Set([
       'users', 'clinics', 'platform_admins', 'roles', 'role_permissions',
       'audit_logs', 'plans', 'platform_settings', 'referrals',
+      'password_resets',
     ]);
     for (const t of tables) {
       const name = Object.values(t)[0];
@@ -607,7 +791,20 @@ async function createClinicDatabase(clinicId, clinicName) {
       await admin.query(def['Create Table']);
     }
     await admin.query('SET FOREIGN_KEY_CHECKS=1');
-    await admin.query('INSERT INTO clinic_settings (id, clinic_name, brand_color) VALUES (1, ?, "#92CAED")', [clinicName]);
+    await admin.query(
+      `INSERT INTO clinic_settings
+         (id, clinic_name, brand_color, logo_url, address, phone, tagline, powered_by)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        branding.clinicName || clinicName,
+        branding.brandColor || '#92CAED',
+        branding.logoUrl || null,
+        branding.address || null,
+        branding.phone || null,
+        branding.tagline || null,
+        branding.poweredBy || null,
+      ],
+    );
     await admin.query('INSERT INTO branches (branch_name, is_active) VALUES ("Main Branch", 1)');
   } finally { await admin.end(); }
 }
@@ -616,36 +813,156 @@ async function connectDB() {
   await ensurePlat();
 }
 
-function authMiddleware(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
+// ---------------------------------------------------------------------------
+// Token signing
+//
+// makeToken used to write the literal string "dummy" as the signature, and
+// authMiddleware never looked at the signature at all - it only base64-decoded
+// the payload. So the token was not a credential, it was a suggestion. Anyone
+// could concatenate {alg,typ} . {sub,clinicId} . dummy and be admitted as any
+// user in any clinic, and `exp` was never checked either, so an expired token
+// stayed good forever. Verified against the running server: a hand-written
+// token with no secret read back clients, pets, employees, services, branches
+// and users.
+//
+// Tokens are now HMAC-SHA256 signed with a per-install secret and the signature
+// is verified on every request.
+//
+// The secret has to survive a restart, because if it were regenerated on boot
+// every signed-in clinic would be logged out every time the service restarted -
+// and on Render the on-disk data dir is wiped on redeploy, which is also why
+// the browser keeps its own copy of the token. It is read from JWT_SECRET when
+// set, otherwise generated once into <userDataDir>/jwt-secret.
+// ---------------------------------------------------------------------------
+const TOKEN_HEADER = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+let cachedSecret = null;
+
+function getTokenSecret() {
+  if (cachedSecret) return cachedSecret;
+  if (process.env.JWT_SECRET) {
+    cachedSecret = process.env.JWT_SECRET;
+    return cachedSecret;
+  }
+  const dir = process.env.WEB_USER_DATA_DIR || path.join(require('os').homedir(), '.podvet');
+  const file = path.join(dir, 'jwt-secret');
   try {
-    const parts = auth.split('.');
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-    req.userId = payload.sub || payload.userId || 1;
-    req.clinicId = payload.clinicId || 1;
-    clinicStore.run(Number(req.clinicId), () => next());
-  } catch { res.status(401).json({ error: 'Invalid token' }); }
+    cachedSecret = fs.readFileSync(file, 'utf8').trim();
+    if (cachedSecret) return cachedSecret;
+  } catch { /* not written yet */ }
+  cachedSecret = crypto.randomBytes(48).toString('hex');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, cachedSecret, { mode: 0o600 });
+  } catch (err) {
+    // Without a writable secret file the install still works, it just has to
+    // sign everyone out when the process restarts.
+    console.warn('[auth] could not persist token secret:', err.message);
+  }
+  return cachedSecret;
+}
+
+function signTokenPart(data) {
+  return crypto.createHmac('sha256', getTokenSecret()).update(data).digest('base64url');
 }
 
 function makeToken(userId, clinicId) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({ sub: userId, clinicId: Number(clinicId) || 1, iat: Date.now(), exp: Date.now() + 86400000 })).toString('base64url');
-  const sig = Buffer.from('dummy').toString('base64url');
-  return `${header}.${payload}.${sig}`;
+  const payload = Buffer.from(JSON.stringify({
+    sub: userId,
+    clinicId: Number(clinicId) || 1,
+    iat: Date.now(),
+    exp: Date.now() + TOKEN_TTL_MS,
+  })).toString('base64url');
+  const body = `${TOKEN_HEADER}.${payload}`;
+  return `${body}.${signTokenPart(body)}`;
+}
+
+// Single place that decides whether a token is genuine. authMiddleware and
+// /api/auth/refresh both go through it - refresh especially, because it used to
+// decode the posted token without checking anything and then mint a fresh
+// signed one from it, which handed anyone who asked a valid credential.
+function verifyToken(raw) {
+  const parts = String(raw || '').split('.');
+  if (parts.length !== 3) return { ok: false, reason: 'malformed token' };
+
+  const body = `${parts[0]}.${parts[1]}`;
+  const expected = signTokenPart(body);
+  const given = parts[2];
+  // timingSafeEqual throws on a length mismatch, hence the guard first.
+  if (given.length !== expected.length ||
+      !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
+    return { ok: false, reason: 'bad signature' };
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch {
+    return { ok: false, reason: 'unreadable payload' };
+  }
+
+  // makeToken has always written epoch milliseconds. Tolerate seconds too, but
+  // only after checking the signature - a number small enough to be seconds is
+  // unambiguous, and by this point the payload is ours.
+  const expMs = Number(payload.exp) < 1e12 ? Number(payload.exp) * 1000 : Number(payload.exp);
+  if (!Number.isFinite(expMs)) return { ok: false, reason: 'no expiry' };
+  if (expMs <= Date.now()) return { ok: false, reason: 'expired' };
+  if (payload.sub === undefined || payload.sub === null) return { ok: false, reason: 'no subject' };
+
+  return { ok: true, payload };
+}
+
+function authMiddleware(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
+
+  const verdict = verifyToken(auth.slice(7));
+  if (!verdict.ok) return res.status(401).json({ error: 'Invalid token' });
+
+  req.userId = Number(verdict.payload.sub);
+  req.clinicId = Number(verdict.payload.clinicId) || 1;
+  clinicStore.run(Number(req.clinicId), () => next());
+}
+
+// Reads the clinic's single clinic_settings row and flattens it into the
+// branding half of a session payload. Kept as its own helper because
+// okClinicSession (login / me / refresh) and /api/auth/switch-clinic all need
+// exactly this, and they previously each re-rolled their own query that only
+// selected clinic_name — so the logo, colour and contact details never reached
+// the client and every surface fell back to hardcoded platform branding.
+async function clinicBrandingFor(clinicId) {
+  const out = {
+    clinicName: 'PodVet Clinic', logoUrl: null, brandColor: '#92CAED',
+    address: '', phone: '', tagline: '', poweredBy: '',
+  };
+  try {
+    const conn = await getClinicConn(clinicId);
+    const [rows] = await conn.query(
+      'SELECT clinic_name, logo_url, brand_color, address, phone, tagline, powered_by FROM clinic_settings WHERE id=1',
+    );
+    const s = rows[0] || {};
+    if (s.clinic_name) out.clinicName = s.clinic_name;
+    out.logoUrl = s.logo_url || null;
+    if (s.brand_color) out.brandColor = s.brand_color;
+    out.address = s.address || '';
+    out.phone = s.phone || '';
+    out.tagline = s.tagline || '';
+    out.poweredBy = s.powered_by || '';
+  } catch (e) {
+    console.error('clinicBrandingFor failed', e.message);
+  }
+  return out;
 }
 
 async function okClinicSession(u, clinicId) {
   const cid = Number(clinicId) || Number(u.clinic_id) || 1;
-  let clinicName = 'PodVet Clinic';
-  try {
-    const conn = await getClinicConn(cid);
-    const [rows] = await conn.query('SELECT clinic_name FROM clinic_settings WHERE id=1');
-    if (rows.length && rows[0].clinic_name) clinicName = rows[0].clinic_name;
-  } catch (_) {}
+  const brand = await clinicBrandingFor(cid);
   return {
     user: { id: u.id, name: u.name, username: u.username, email: u.email, isPlatformAdmin: u.role === 'OWNER' },
-    activeClinic: { clinicId: cid, clinicName, slug: 'podvet', role: u.role || 'OWNER', branchId: null, accessBlocked: null },
+    activeClinic: {
+      clinicId: cid, slug: 'podvet', role: u.role || 'OWNER', branchId: null, accessBlocked: null,
+      ...brand,
+    },
   };
 }
 
@@ -950,6 +1267,11 @@ app.post('/api/referrals', authMiddleware, async (req, res) => {
 // readable message and NO clinic is created, and a valid code stores
 // REFERRAL_DISCOUNT on the new clinic for its first invoice. Validation happens
 // before any INSERT so a bad code can never leave a half-created clinic behind.
+//
+// Everything the signup form collected about the clinic itself (logo, address,
+// phone, brand colour, tagline, powered-by) is persisted here too, so the
+// clinic is branded from its very first login instead of showing the platform's
+// logo and name until someone opens Settings.
 app.post('/api/clinics', async (req, res) => {
   try {
     const owner = req.body.owner || req.body;
@@ -961,6 +1283,25 @@ app.post('/api/clinics', async (req, res) => {
     const rawCode = req.body.referralCode ?? req.body.referral_code ?? owner.referralCode ?? owner.referral_code ?? '';
     const hasCode = String(rawCode || '').trim() !== '';
 
+    // The logo arrives as a data URL (the signup screen has no filesystem of its
+    // own) and is materialised into /uploaded before any INSERT, so a malformed
+    // payload fails here rather than after the clinic row exists.
+    const logoDataUrl = req.body.logoDataUrl || owner.logoDataUrl || null;
+    let logoUrl = null;
+    if (logoDataUrl) {
+      logoUrl = saveDataUrlImage(logoDataUrl, 'clinic_logo');
+      if (!logoUrl) return res.status(400).json({ error: { message: 'Clinic logo must be a PNG, JPEG, WebP or GIF image.', field: 'logo' } });
+    }
+    const branding = {
+      clinicName,
+      logoUrl,
+      address: (req.body.address ?? owner.address ?? '') || null,
+      phone: (req.body.phone ?? owner.phone ?? owner.phoneNumber ?? '') || null,
+      brandColor: (req.body.brandColor ?? req.body.color ?? '') || null,
+      tagline: (req.body.tagline ?? '') || null,
+      poweredBy: (req.body.poweredBy ?? '') || null,
+    };
+
     let referral = null;
     if (hasCode) {
       referral = await resolveReferral(rawCode);
@@ -970,7 +1311,16 @@ app.post('/api/clinics', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const [reg] = await platConn.query('INSERT INTO clinics (clinic_name, slug) VALUES (?, ?)', [clinicName, 'podvet']);
     const clinicId = reg.insertId;
-    await createClinicDatabase(clinicId, clinicName);
+    // Mirror the branding onto the platform-side clinics row too, so the
+    // Super Admin clinic list has it. Best-effort: those columns are added by
+    // the startup migration and a genuinely missing one must not fail signup
+    // after the clinic row already exists.
+    try {
+      await platConn.query('UPDATE clinics SET logo=?, address=? WHERE id=?', [logoUrl, branding.address, clinicId]);
+    } catch (err) {
+      console.error('clinics branding mirror skipped', err.message);
+    }
+    await createClinicDatabase(clinicId, clinicName, branding);
     await startTrial(clinicId, 0);
     if (referral) {
       await platConn.query('UPDATE clinics SET referral_discount = ? WHERE id = ?', [REFERRAL_DISCOUNT, clinicId]);
@@ -992,7 +1342,18 @@ app.post('/api/clinics', async (req, res) => {
     res.json({
       accessToken: token, refreshToken: token,
       user: { id: r.insertId, name, username, email, isPlatformAdmin: false },
-      activeClinic: { clinicId, clinicName, slug: 'podvet', role: 'OWNER', branchId: null, accessBlocked: null },
+      activeClinic: {
+        clinicId, clinicName, slug: 'podvet', role: 'OWNER', branchId: null, accessBlocked: null,
+        // Ship the branding back on the signup response so the renderer can
+        // rebrand the whole app straight out of signup, with no follow-up
+        // request and no first-paint flash of the platform's logo and name.
+        logoUrl: branding.logoUrl || null,
+        brandColor: branding.brandColor || '#92CAED',
+        address: branding.address || '',
+        phone: branding.phone || '',
+        tagline: branding.tagline || '',
+        poweredBy: branding.poweredBy || '',
+      },
       ...(referral ? {
         referralApplied: true,
         referralDiscount: REFERRAL_DISCOUNT,
@@ -1026,18 +1387,171 @@ app.patch('/api/auth/me', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/auth/switch-clinic', authMiddleware, async (req, res) => {
-  let clinicName = 'PodVet Clinic';
-  try {
-    const conn = await getClinicConn(req.clinicId);
-    const [rows] = await conn.query('SELECT clinic_name FROM clinic_settings WHERE id=1');
-    if (rows.length && rows[0].clinic_name) clinicName = rows[0].clinic_name;
-  } catch (_) {}
-  res.json({ accessToken: makeToken(req.userId, req.clinicId), refreshToken: makeToken(req.userId, req.clinicId), user: { id: req.userId, name: 'User' }, activeClinic: { clinicId: req.clinicId, clinicName, slug: 'podvet', role: 'OWNER', branchId: null } });
+  const brand = await clinicBrandingFor(req.clinicId);
+  const [rows] = await platConn.query('SELECT name FROM users WHERE id=?', [req.userId]);
+  res.json({
+    accessToken: makeToken(req.userId, req.clinicId),
+    refreshToken: makeToken(req.userId, req.clinicId),
+    // The real user's name, not a hardcoded 'User' — this payload feeds
+    // toLocalUser(), so a placeholder here showed up as "User" in the app's
+    // account UI after any clinic switch.
+    user: { id: req.userId, name: (rows[0] && rows[0].name) || 'User' },
+    activeClinic: { clinicId: req.clinicId, slug: 'podvet', role: 'OWNER', branchId: null, ...brand },
+  });
 });
 
 app.post('/api/auth/logout', (req, res) => res.json({ success: true }));
-app.post('/api/auth/forgot-password', (req, res) => res.json({ success: true, message: 'Reset email sent' }));
-app.post('/api/auth/reset-password', (req, res) => res.json({ success: true }));
+
+// ── Password reset by emailed code ───────────────────────────────────────────
+//
+// The frontend flow (see the Forgot Password / Verify OTP screens) is:
+//   POST /forgot-password { email }  -> mails a 6-digit code
+//   POST /reset-password  { token, newPassword }
+//                                        `token` is that 6-digit code.
+//
+// Two rules drive the implementation:
+//
+// 1. /forgot-password answers identically whether or not the address is
+//    registered. Anything else turns the endpoint into an account-enumeration
+//    oracle ("that email is not signed up"), which is why the lookup result
+//    is never allowed to reach the response.
+// 2. Only a hash of the code is stored, and it is single-use: a successful
+//    reset marks it used, and issuing a new code deletes any earlier one.
+const RESET_CODE_TTL_MIN = 10;
+const RESET_MAX_ATTEMPTS = 5;
+// Per-address throttle, on top of the code's own expiry: stops the endpoint
+// being used to mail-bomb one inbox.
+const RESET_RESEND_COOLDOWN_SEC = 60;
+
+function resetCodeEmail({ code, clinicName }) {
+  const app = process.env.APP_URL || 'https://podvet.biztrack.uk';
+  return {
+    subject: `${code} is your PodVet password reset code`,
+    html: `<!doctype html><html><body style="margin:0;padding:0;background:#f4f8fb;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f8fb;padding:32px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0">
+        <tr><td style="padding:28px 32px 8px">
+          <p style="margin:0 0 20px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#1b6ea1">Password reset</p>
+          <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#0d2e50">Your reset code</h1>
+          <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">Use this code to choose a new password${clinicName ? ` for <strong>${clinicName}</strong>` : ''}. It expires in ${RESET_CODE_TTL_MIN} minutes.</p>
+          <div style="margin:0 0 22px;padding:20px;background:#f4f8fb;border:1px solid #dce9f4;border-radius:12px;text-align:center">
+            <span style="font-size:34px;font-weight:800;letter-spacing:.32em;color:#1b6ea1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${code}</span>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#64748b">If you did not request this, you can safely ignore this email &mdash; your password will not change.</p>
+        </td></tr>
+        <tr><td style="padding:8px 32px 28px">
+          <a href="${app}/app#/forgot-password" style="display:inline-block;padding:13px 22px;background:#f8e327;color:#1b6ea1;font-size:14px;font-weight:700;border-radius:999px;text-decoration:none">Open PodVet</a>
+          <p style="margin:20px 0 0;font-size:12px;color:#94a3b8">&copy; PodVet</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table></body></html>`,
+  };
+}
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  // Same answer for every input -- see rule 1 above.
+  const GENERIC = { success: true, message: 'If that email is registered, a code has been sent.' };
+  try {
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.json(GENERIC);
+
+    const [users] = await platConn.query(
+      'SELECT id, name, email, clinic_id FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [email],
+    );
+    if (!users.length) return res.json(GENERIC);
+    const user = users[0];
+
+    const [[throttle]] = await platConn.query(
+      `SELECT id FROM password_resets
+        WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)
+        LIMIT 1`,
+      [user.id, RESET_RESEND_COOLDOWN_SEC],
+    );
+    if (throttle) return res.json({ ...GENERIC, message: 'Please wait a minute before requesting another code.' });
+
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    // A new code invalidates every earlier one, so only the newest is usable.
+    await platConn.query('DELETE FROM password_resets WHERE user_id = ?', [user.id]);
+    await platConn.query(
+      `INSERT INTO password_resets (user_id, email, code_hash, expires_at)
+       VALUES (?,?,?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+      [user.id, user.email, await bcrypt.hash(code, 10), RESET_CODE_TTL_MIN],
+    );
+
+    let clinicName = null;
+    try {
+      const [cs] = await platConn.query('SELECT clinic_name FROM clinics WHERE id = ?', [user.clinic_id]);
+      clinicName = cs.length ? cs[0].clinic_name : null;
+    } catch (_) { /* branding is cosmetic -- never block the send on it */ }
+
+    try {
+      await sendMail({ to: user.email, ...resetCodeEmail({ code, clinicName }) });
+    } catch (e) {
+      // Do not leak the mail error to the caller, but do not lose it either:
+      // a misconfigured SMTP block would otherwise look like a working
+      // endpoint that simply never delivers.
+      console.error('[mailer] password reset email failed:', e.message);
+      return res.status(502).json({ success: false, message: 'We could not send the email right now. Please try again shortly.' });
+    }
+
+    return res.json(GENERIC);
+  } catch (e) {
+    console.error('[auth] forgot-password failed:', e.message);
+    return res.status(500).json({ error: { message: e.message } });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const code = String(body.token || '').trim();
+    const newPassword = String(body.newPassword || '');
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ success: false, message: 'That code is invalid or has expired.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters.' });
+    }
+
+    const [rows] = await platConn.query(
+      `SELECT id, user_id, code_hash, attempts FROM password_resets
+        WHERE used_at IS NULL AND expires_at > NOW()
+        ORDER BY id DESC LIMIT 1`,
+    );
+    let matched = null;
+    for (const row of rows) {
+      if (await bcrypt.compare(code, row.code_hash)) { matched = row; break; }
+    }
+    if (!matched) {
+      // Count the burn on the newest live code so a wrong code cannot be
+      // brute-forced by cycling through fresh requests.
+      if (rows.length) {
+        await platConn.query(
+          'UPDATE password_resets SET attempts = attempts + 1 WHERE id = ? AND attempts < ?',
+          [rows[0].id, RESET_MAX_ATTEMPTS],
+        );
+      }
+      return res.status(400).json({ success: false, message: 'That code is invalid or has expired.' });
+    }
+    if (matched.attempts >= RESET_MAX_ATTEMPTS) {
+      await platConn.query('DELETE FROM password_resets WHERE id = ?', [matched.id]);
+      return res.status(429).json({ success: false, message: 'Too many attempts. Please request a new code.' });
+    }
+
+    await platConn.query(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [await bcrypt.hash(newPassword, 10), matched.user_id],
+    );
+    await platConn.query('UPDATE password_resets SET used_at = NOW() WHERE id = ?', [matched.id]);
+    return res.json({ success: true, message: 'Password reset successfully!' });
+  } catch (e) {
+    console.error('[auth] reset-password failed:', e.message);
+    return res.status(500).json({ error: { message: e.message } });
+  }
+});
 app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -1052,8 +1566,13 @@ app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
 app.post('/api/auth/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    const parts = refreshToken.split('.');
-    const p = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    // This endpoint hands out a freshly signed token, so it is the most
+    // dangerous place in the file to trust the caller's token. It used to just
+    // base64-decode the payload and re-sign whatever `sub` it found, which
+    // meant anyone could post a made-up token and walk out with a real one.
+    const verdict = verifyToken(refreshToken);
+    if (!verdict.ok) return res.status(401).json({ error: 'Invalid refresh token' });
+    const p = verdict.payload;
     const token = makeToken(p.sub, p.clinicId || 1);
     const [rows] = await platConn.query('SELECT * FROM users WHERE id=?', [p.sub]);
     if (!rows.length) return res.status(401).json({ error: 'Invalid' });
@@ -1077,6 +1596,7 @@ function clinicDTO(row) {
     posShowLogo: s.posShowLogo, posShowClinicPhone: s.posShowClinicPhone, posShowClientPhone: s.posShowClientPhone,
     posShowVetName: s.posShowVetName, posShowAddress: s.posShowAddress, posShowBankDetails: s.posShowBankDetails,
     posHeaderShowClinicName: s.posHeaderShowClinicName,
+    tagline: s.tagline || '', poweredBy: s.poweredBy || '',
   };
 }
 app.get('/api/clinics/me', authMiddleware, async (req, res) => {
@@ -1092,25 +1612,34 @@ app.patch('/api/clinics/me', authMiddleware, async (req, res) => {
       bankAccountNumber: 'bank_account_number', posShowLogo: 'pos_show_logo', posShowClinicPhone: 'pos_show_clinic_phone',
       posShowClientPhone: 'pos_show_client_phone', posShowVetName: 'pos_show_vet_name', posShowAddress: 'pos_show_address',
       posShowBankDetails: 'pos_show_bank_details', posHeaderShowClinicName: 'pos_header_show_clinic_name',
+      tagline: 'tagline', poweredBy: 'powered_by',
     };
     for (const [k, col] of Object.entries(sets)) {
       if (d[k] !== undefined) { F.push(`${col}=?`); V.push(typeof d[k] === 'boolean' ? (d[k] ? 1 : 0) : d[k]); }
     }
     await db.query('INSERT IGNORE INTO clinic_settings (id) VALUES (1)');
     if (F.length) await db.query(`UPDATE clinic_settings SET ${F.join(',')} WHERE id=1`, V);
+    // clinic_settings (this clinic's DB) is the source the app renders from,
+    // but the platform tables keep their own copy of the name: referral cards,
+    // invitations and the super-admin clinic list all read clinics.clinic_name.
+    // It used to be written once at creation and never again, so a renamed
+    // clinic kept announcing its old name everywhere outside the app shell.
+    if (d.clinicName !== undefined) {
+      const newName = String(d.clinicName || '').trim() || 'PodVet Clinic';
+      try { await platConn.query('UPDATE clinics SET clinic_name=? WHERE id=?', [newName, req.clinicId]); }
+      catch (e) { console.error('[PATCH /api/clinics/me] clinics.clinic_name mirror failed', e.message); }
+    }
     const [rows] = await settingsRow();
     res.json({ success: true, clinic: clinicDTO(rows[0]) });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/clinics/me/branding', authMiddleware, async (req, res) => {
-  try { const [rows] = await settingsRow(); const s = toCamel(rows[0] || {});
-    res.json({ clinicName: s.clinicName || 'PodVet Clinic', logoUrl: s.logoUrl || null, brandColor: s.brandColor || '#92CAED' });
-  } catch { res.json({ clinicName: 'PodVet Clinic', logoUrl: null, brandColor: '#92CAED' }); }
+  try { res.json(await clinicBrandingFor(req.clinicId)); }
+  catch { res.json({ clinicName: 'PodVet Clinic', logoUrl: null, brandColor: '#92CAED', address: '', phone: '', tagline: '', poweredBy: '' }); }
 });
 app.get('/api/public/branding', async (req, res) => {
-  try { const [rows] = await settingsRow(); const s = toCamel(rows[0] || {});
-    res.json({ clinicName: s.clinicName || 'PodVet Clinic', logoUrl: s.logoUrl || null, brandColor: s.brandColor || '#92CAED' });
-  } catch { res.json({ clinicName: 'PodVet Clinic', logoUrl: null, brandColor: '#92CAED' }); }
+  try { res.json(await clinicBrandingFor(Number(req.query.clinicId) || 1)); }
+  catch { res.json({ clinicName: 'PodVet Clinic', logoUrl: null, brandColor: '#92CAED', address: '', phone: '', tagline: '', poweredBy: '' }); }
 });
 
 // â”€â”€â”€ PLANS / SUBSCRIPTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1214,6 +1743,24 @@ app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
 });
 
 // â”€â”€â”€ EMPLOYEES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── EMPLOYEE SOCIAL LINKS ────────────────────────────────────────────────────
+// Fixed platform list (the UI ships an icon per platform), stored as a JSON
+// array of { platform, url } so the roster row and the profile modal can both
+// render links without a join.
+const SOCIAL_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'twitter', 'whatsapp', 'website'];
+function parseSocialLinks(raw) {
+  if (!raw) return [];
+  let list = raw;
+  if (typeof raw === 'string') { try { list = JSON.parse(raw); } catch (_) { return []; } }
+  if (!Array.isArray(list)) return [];
+  return list.filter((x) => x && typeof x === 'object' && SOCIAL_PLATFORMS.includes(String(x.platform || '').toLowerCase()) && String(x.url || '').trim())
+    .map((x) => ({ platform: String(x.platform).toLowerCase(), url: String(x.url).trim() }));
+}
+function normaliseSocialLinks(value) {
+  const list = parseSocialLinks(value);
+  return list.length ? JSON.stringify(list) : null;
+}
+
 app.get('/api/employees', authMiddleware, async (req, res) => {
   try {
     const { page = 1, pageSize = 20, search = '' } = req.query;
@@ -1222,22 +1769,24 @@ app.get('/api/employees', authMiddleware, async (req, res) => {
     if (search) { where = 'WHERE name LIKE ? OR position LIKE ?'; params = [`%${search}%`, `%${search}%`]; }
     const [count] = await db.query(`SELECT COUNT(*) as cnt FROM employees ${where}`, params);
     const [rows] = await db.query(`SELECT * FROM employees ${where} ORDER BY name LIMIT ? OFFSET ?`, [...params, sz, offset]);
-    res.json(paginate(rows, count[0].cnt, page, sz));
+    res.json(paginate(rows.map((r) => ({ ...r, social_links: parseSocialLinks(r.social_links) })), count[0].cnt, page, sz));
   } catch { res.json(EMPTY); }
 });
 app.post('/api/employees', authMiddleware, async (req, res) => {
   try {
     const { name, position, designation, salary, contact, joinedOn, joined_on } = req.body;
-    const [r] = await db.query('INSERT INTO employees (name,position,designation,salary,contact,joined_on) VALUES (?,?,?,?,?,?)',
-      [name, position||'', designation||'', salary||0, contact||'', joinedOn||joined_on||null]);
+    const socialLinks = normaliseSocialLinks(req.body.socialLinks ?? req.body.social_links);
+    const [r] = await db.query('INSERT INTO employees (name,position,designation,salary,contact,joined_on,social_links) VALUES (?,?,?,?,?,?,?)',
+      [name, position||'', designation||'', salary||0, contact||'', joinedOn||joined_on||null, socialLinks]);
     res.json({ data: { id: r.insertId, name } });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/employees/:id', authMiddleware, async (req, res) => {
   try {
     const { name, position, designation, salary, contact, joinedOn, joined_on } = req.body;
-    await db.query('UPDATE employees SET name=?,position=?,designation=?,salary=?,contact=?,joined_on=? WHERE id=?',
-      [name, position||'', designation||'', salary||0, contact||'', joinedOn||joined_on||null, req.params.id]);
+    const socialLinks = normaliseSocialLinks(req.body.socialLinks ?? req.body.social_links);
+    await db.query('UPDATE employees SET name=?,position=?,designation=?,salary=?,contact=?,joined_on=?,social_links=? WHERE id=?',
+      [name, position||'', designation||'', salary||0, contact||'', joinedOn||joined_on||null, socialLinks, req.params.id]);
     res.json({ success: true });
   } catch { res.json({ success: true }); }
 });
@@ -1276,11 +1825,225 @@ app.delete('/api/users/:id', authMiddleware, async (req, res) => {
   catch { res.json({ success: true }); }
 });
 
-// â”€â”€â”€ INVITATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-app.get('/api/invitations', authMiddleware, (req, res) => res.json(EMPTY));
-app.post('/api/invitations', authMiddleware, (req, res) => res.json({ success: true }));
-app.delete('/api/invitations/:id', authMiddleware, (req, res) => res.json({ success: true }));
-app.post('/api/invitations/:id/resend', authMiddleware, (req, res) => res.json({ success: true }));
+// ─── INVITATIONS ───
+// The "Add User" modal in Employees > Users collects only an email, role,
+// designation and branch; the invitee sets their own username and password on
+// the accept page. These four routes used to be stubs that answered
+// {success:true} without writing anything, so an invite was never recorded, the
+// Pending list stayed permanently empty, and clinicUsersHandlers'
+// toLegacyInvitation threw on the missing row ("Cannot read properties of
+// undefined (reading 'id')") - which is why inviting a user always failed.
+const INVITATION_TTL_DAYS = 7;
+const INVITATION_ROLES = new Set(['OWNER', 'ADMIN', 'USER']);
+// Public origin, used to build the accept link inside the invitation email.
+const APP_URL = process.env.APP_URL || 'https://podvet.biztrack.uk';
+
+function invitationToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function invitationRow(r) {
+  return {
+    id: r.id, email: r.email, role: r.role, designation: r.designation,
+    branchId: r.branch_id, invitedByName: r.invited_by_name || '',
+    status: r.status, expiresAt: r.expires_at, createdAt: r.created_at,
+  };
+}
+
+function invitationEmail({ role, clinicName, inviterName, link }) {
+  return {
+    subject: `You have been invited to join ${clinicName} on PodVet`,
+    html: `<!doctype html><html><body style="margin:0;padding:0;background:#f4f8fb;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f8fb;padding:32px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0">
+        <tr><td style="padding:28px 32px 8px">
+          <p style="margin:0 0 20px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#1b6ea1">You're invited</p>
+          <h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;color:#0d2e50">Join ${clinicName}</h1>
+          <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#475569">${inviterName || 'A clinic administrator'} invited you to join <strong>${clinicName}</strong> as <strong>${String(role || 'USER').toUpperCase()}</strong>. Choose a username and password to get started.</p>
+          <div style="margin:0 0 22px">
+            <a href="${link}" style="display:inline-block;padding:14px 28px;background:#1b6ea1;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:10px">Accept invitation</a>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#64748b">Or paste this link into your browser:<br><span style="word-break:break-all">${link}</span></p>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#94a3b8">This invitation expires in ${INVITATION_TTL_DAYS} days.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table></body></html>`,
+  };
+}
+
+const INVITATION_SELECT = `SELECT i.*, COALESCE(u.name,'') AS invited_by_name, c.clinic_name
+  FROM invitations i
+  LEFT JOIN users u ON u.id = i.invited_by
+  LEFT JOIN clinics c ON c.id = i.clinic_id`;
+
+app.get('/api/invitations', authMiddleware, async (req, res) => {
+  try {
+    const { page = 1, pageSize = 5, search = '' } = req.query;
+    const sz = P(pageSize) || 5, offset = (P(page) - 1) * sz;
+    let where = 'WHERE i.clinic_id=?', params = [req.clinicId];
+    if (search) { where += ' AND i.email LIKE ?'; params.push(`%${search}%`); }
+    const [count] = await platConn.query(`SELECT COUNT(*) AS cnt FROM invitations i ${where}`, params);
+    const [rows] = await platConn.query(
+      `${INVITATION_SELECT} ${where} ORDER BY i.id DESC LIMIT ? OFFSET ?`, [...params, sz, offset]);
+    res.json(paginate(rows.map(invitationRow), count[0].cnt, page, sz));
+  } catch (e) { console.error('[invitations GET]', e.message); res.json(EMPTY); }
+});
+
+app.post('/api/invitations', authMiddleware, async (req, res) => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: { message: 'A valid email address is required' } });
+    }
+    const role = String(req.body.role || 'USER').toUpperCase();
+    if (!INVITATION_ROLES.has(role)) {
+      return res.status(400).json({ error: { message: 'That role is not available for an invitation' } });
+    }
+    // An admin must not be able to mint an OWNER - that would be a privilege
+    // escalation through the invite flow. The caller's own role is read here
+    // rather than in authMiddleware, so the common request path stays free of
+    // an extra round trip.
+    if (role === 'OWNER') {
+      const [[me]] = await platConn.query(
+        'SELECT role FROM users WHERE id=? AND clinic_id=?', [req.userId, req.clinicId]);
+      if (!me || String(me.role || '').toUpperCase() !== 'OWNER') {
+        return res.status(403).json({ error: { message: 'Only the clinic owner can invite another owner' } });
+      }
+    }
+
+    const token = invitationToken();
+    const expires = new Date(Date.now() + INVITATION_TTL_DAYS * 864e5);
+    // Re-inviting a pending address refreshes the existing row instead of
+    // tripping the (clinic_id, email) unique key - which is exactly what the
+    // modal's resend button is for.
+    await platConn.query(
+      `INSERT INTO invitations (clinic_id, email, role, designation, branch_id, invited_by, token, status, expires_at)
+       VALUES (?,?,?,?,?,?,?, 'pending', ?)
+       ON DUPLICATE KEY UPDATE role=VALUES(role), designation=VALUES(designation),
+         branch_id=VALUES(branch_id), invited_by=VALUES(invited_by), token=VALUES(token),
+         status='pending', expires_at=VALUES(expires_at), accepted_at=NULL`,
+      [req.clinicId, email, role, req.body.designation || null,
+        req.body.branchId ?? null, req.userId || null, token, expires]);
+
+    const [rows] = await platConn.query(`${INVITATION_SELECT} WHERE i.clinic_id=? AND i.email=?`, [req.clinicId, email]);
+    const inv = rows[0];
+    try {
+      await sendMail({
+        to: email,
+        ...invitationEmail({
+          role: inv.role, clinicName: inv.clinic_name || 'your clinic',
+          inviterName: inv.invited_by_name,
+          link: `${APP_URL}/app#/accept-invitation?token=${token}`,
+        }),
+      });
+    } catch (e) {
+      // The invitation is recorded either way. A mail failure must not read as
+      // "invite failed", or the admin creates a second copy of the same pending
+      // row and nobody can tell which one is live.
+      console.error('[invitations mail]', e.message);
+    }
+    res.json({ data: invitationRow(inv) });
+  } catch (e) { console.error('[invitations POST]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+
+app.post('/api/invitations/:id/resend', authMiddleware, async (req, res) => {
+  try {
+    const token = invitationToken();
+    const expires = new Date(Date.now() + INVITATION_TTL_DAYS * 864e5);
+    const [r] = await platConn.query(
+      `UPDATE invitations SET token=?, status='pending', expires_at=?, accepted_at=NULL
+        WHERE id=? AND clinic_id=?`, [token, expires, req.params.id, req.clinicId]);
+    if (!r.affectedRows) return res.status(404).json({ error: { message: 'Invitation not found' } });
+
+    const [rows] = await platConn.query(`${INVITATION_SELECT} WHERE i.id=? AND i.clinic_id=?`, [req.params.id, req.clinicId]);
+    const inv = rows[0];
+    try {
+      await sendMail({
+        to: inv.email,
+        ...invitationEmail({
+          role: inv.role, clinicName: inv.clinic_name || 'your clinic',
+          inviterName: inv.invited_by_name,
+          link: `${APP_URL}/app#/accept-invitation?token=${token}`,
+        }),
+      });
+    } catch (e) { console.error('[invitations resend mail]', e.message); }
+    res.json({ success: true, message: 'Invitation resent', data: invitationRow(inv) });
+  } catch (e) { console.error('[invitations resend]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+
+app.delete('/api/invitations/:id', authMiddleware, async (req, res) => {
+  try {
+    const [r] = await platConn.query(
+      `UPDATE invitations SET status='revoked' WHERE id=? AND clinic_id=?`, [req.params.id, req.clinicId]);
+    if (!r.affectedRows) return res.status(404).json({ error: { message: 'Invitation not found' } });
+    res.json({ success: true, message: 'Invitation revoked' });
+  } catch (e) { console.error('[invitations DELETE]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+
+// The accept page is unauthenticated by necessity - the invitee has no account
+// yet - so the single-use token is the entire credential. It is checked with a
+// strict shape first, and only ever reveals the invitation's own details.
+app.get('/api/invitations/accept/:token', async (req, res) => {
+  try {
+    const token = String(req.params.token || '');
+    if (!/^[a-f0-9]{48}$/.test(token)) return res.status(404).json({ error: { message: 'This invitation link is not valid' } });
+    const [rows] = await platConn.query(`${INVITATION_SELECT} WHERE i.token=?`, [token]);
+    const inv = rows[0];
+    if (!inv) return res.status(404).json({ error: { message: 'This invitation link is not valid' } });
+    if (inv.status !== 'pending') return res.status(410).json({ error: { message: `This invitation has already been ${inv.status}` } });
+    if (new Date(inv.expires_at).getTime() < Date.now()) return res.status(410).json({ error: { message: 'This invitation has expired' } });
+    res.json({
+      data: {
+        email: inv.email, role: inv.role, designation: inv.designation,
+        clinicName: inv.clinic_name, invitedByName: inv.invited_by_name,
+      },
+    });
+  } catch (e) { console.error('[invitations accept GET]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+
+app.post('/api/invitations/accept/:token', async (req, res) => {
+  try {
+    const token = String(req.params.token || '');
+    if (!/^[a-f0-9]{48}$/.test(token)) return res.status(404).json({ error: { message: 'This invitation link is not valid' } });
+    const { name, username, password } = req.body || {};
+    if (!String(name || '').trim()) return res.status(400).json({ error: { message: 'Please enter your name' } });
+    if (!String(username || '').trim()) return res.status(400).json({ error: { message: 'Please choose a username' } });
+    if (String(password || '').length < 8) return res.status(400).json({ error: { message: 'Password must be at least 8 characters' } });
+
+    const [rows] = await platConn.query('SELECT * FROM invitations WHERE token=?', [token]);
+    const inv = rows[0];
+    if (!inv) return res.status(404).json({ error: { message: 'This invitation link is not valid' } });
+    if (inv.status !== 'pending') return res.status(410).json({ error: { message: `This invitation has already been ${inv.status}` } });
+    if (new Date(inv.expires_at).getTime() < Date.now()) return res.status(410).json({ error: { message: 'This invitation has expired' } });
+
+    const [dupe] = await platConn.query('SELECT id FROM users WHERE username=? LIMIT 1', [String(username).trim()]);
+    if (dupe.length) return res.status(409).json({ error: { message: 'That username is already taken' } });
+
+    const hash = await bcrypt.hash(password, 10);
+    // The status flip happens in the same transaction as the user insert, so a
+    // leaked link cannot be replayed and a failed insert leaves it usable.
+    const conn = await mysql.createConnection({ ...DB_OPTS });
+    try {
+      await conn.beginTransaction();
+      await conn.query(
+        `INSERT INTO users (name, username, email, password, role, phone_number, clinic_id)
+         VALUES (?,?,?,?,?,?,?)`,
+        [String(name).trim(), String(username).trim(), inv.email, hash, inv.role, null, inv.clinic_id]);
+      const [flip] = await conn.query(
+        `UPDATE invitations SET status='accepted', accepted_at=NOW() WHERE id=? AND status='pending'`, [inv.id]);
+      if (!flip.affectedRows) throw new Error('This invitation has already been accepted');
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      await conn.end();
+    }
+    res.json({ success: true, message: 'Your account is ready, you can sign in now' });
+  } catch (e) { console.error('[invitations accept POST]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
 
 // â”€â”€â”€ CLIENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/clients', authMiddleware, async (req, res) => {
@@ -1729,7 +2492,75 @@ app.get('/api/vendors/:id/settlements', authMiddleware, async (req, res) => {
   } catch { res.json(EMPTY); }
 });
 
-// â”€â”€â”€ COUPONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── VENDOR PURCHASES (stock bought from a vendor) ────────────────────────────
+// Distinct from vendor_settlements (what consignment sales owe the vendor):
+// this is stock the clinic bought, and saving one adds the linked products'
+// quantity back to inventory. Deleting it reverses exactly that addition.
+async function loadVendorPurchases(vendorId) {
+  const [rows] = await db.query(
+    'SELECT * FROM vendor_purchases WHERE vendor_id=? ORDER BY purchase_date DESC, id DESC', [vendorId]);
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  const [items] = await db.query(
+    `SELECT i.*, p.name as product_name FROM vendor_purchase_items i
+     LEFT JOIN products p ON p.id = i.product_id
+     WHERE i.purchase_id IN (${ids.map(() => '?').join(',')}) ORDER BY i.id`, ids);
+  const byPurchase = {};
+  for (const it of items) { (byPurchase[it.purchase_id] = byPurchase[it.purchase_id] || []).push(toCamel(it)); }
+  return rows.map((r) => ({ ...toCamel(r), items: byPurchase[r.id] || [] }));
+}
+app.get('/api/vendors/:id/purchases', authMiddleware, async (req, res) => {
+  try {
+    const list = await loadVendorPurchases(Number(req.params.id));
+    res.json(paginate(list, list.length, 1, 100));
+  } catch (e) { console.error('[vendors/:id/purchases]', e.message); res.json(EMPTY); }
+});
+app.post('/api/vendors/:id/purchases', authMiddleware, async (req, res) => {
+  try {
+    const vendorId = Number(req.params.id);
+    const d = req.body || {};
+    const raw = Array.isArray(d.items) ? d.items : [];
+    const lines = raw.map((it) => {
+      const quantity = Math.max(1, Math.round(Number(it.quantity ?? it.qty) || 0));
+      const unitPrice = Math.max(0, Number(it.unitPrice ?? it.unit_price ?? 0) || 0);
+      const productId = it.productId ?? it.product_id ?? null;
+      const itemName = String(it.itemName ?? it.item_name ?? it.name ?? '').trim();
+      return { productId: productId ? Number(productId) : null, itemName, quantity, unitPrice, lineTotal: +(quantity * unitPrice).toFixed(2) };
+    }).filter((l) => l.itemName);
+    if (!lines.length) return res.status(400).json({ error: { message: 'Add at least one item to the purchase.' } });
+    const paymentStatus = ['paid', 'partial', 'due'].includes(String(d.paymentStatus || '').toLowerCase())
+      ? String(d.paymentStatus).toLowerCase() : 'paid';
+    const totalAmount = +lines.reduce((s, l) => s + l.lineTotal, 0).toFixed(2);
+    const purchaseDate = /^\d{4}-\d{2}-\d{2}$/.test(String(d.purchaseDate || '')) ? d.purchaseDate : new Date().toISOString().slice(0, 10);
+    const [r] = await db.query(
+      'INSERT INTO vendor_purchases (vendor_id, purchase_date, payment_status, total_amount, notes) VALUES (?,?,?,?,?)',
+      [vendorId, purchaseDate, paymentStatus, totalAmount, d.notes || null]);
+    for (const l of lines) {
+      await db.query(
+        'INSERT INTO vendor_purchase_items (purchase_id, product_id, item_name, quantity, unit_price, line_total) VALUES (?,?,?,?,?,?)',
+        [r.insertId, l.productId, l.itemName, l.quantity, l.unitPrice, l.lineTotal]);
+      // Stock in: only a line that names an existing product moves inventory.
+      if (l.productId) await db.query('UPDATE products SET quantity = quantity + ? WHERE id = ?', [l.quantity, l.productId]);
+    }
+    res.json({ data: { id: r.insertId, vendorId, purchaseDate, paymentStatus, totalAmount } });
+  } catch (e) { console.error('[vendors/:id/purchases POST]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+app.delete('/api/vendors/:id/purchases/:purchaseId', authMiddleware, async (req, res) => {
+  try {
+    const purchaseId = Number(req.params.purchaseId);
+    const [items] = await db.query('SELECT product_id, quantity FROM vendor_purchase_items WHERE purchase_id = ?', [purchaseId]);
+    const [del] = await db.query('DELETE FROM vendor_purchases WHERE id = ? AND vendor_id = ?', [purchaseId, Number(req.params.id)]);
+    if (!del.affectedRows) return res.status(404).json({ error: { message: 'Purchase not found.' } });
+    // Take back only what this purchase added, and never below zero: stock may
+    // have been sold (or manually corrected) since it was recorded.
+    for (const it of items) {
+      if (it.product_id) await db.query('UPDATE products SET quantity = GREATEST(0, quantity - ?) WHERE id = ?', [it.quantity, it.product_id]);
+    }
+    res.json({ success: true });
+  } catch (e) { console.error('[vendors/:id/purchases DELETE]', e.message); res.status(500).json({ error: { message: e.message } }); }
+});
+
+// â”€â”€â”€ COUPONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/coupons', authMiddleware, async (req, res) => {
   try { const { page = 1, pageSize = 5, search } = req.query; const pg = P(page) || 1, sz = P(pageSize) || 5;
     let where = '1=1', params = [];
@@ -2604,14 +3435,48 @@ app.get('/api/reports', authMiddleware, async (req, res) => {
 });
 
 // â”€â”€â”€ FORMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function formPagesOf(formRow) {
+// Resolves user ids to display names from the platform database. `users` is a
+// platform-only table (never cloned into a clinic database), and forms.created_by
+// is an int FK into it, so the name has to be looked up platform-side.
+async function userNamesById(ids) {
+  const out = new Map();
+  const clean = [...new Set((ids || []).filter((n) => Number.isFinite(Number(n)) && n !== null))];
+  if (!clean.length) return out;
+  try {
+    const [rows] = await platConn.query(`SELECT id, name FROM users WHERE id IN (${clean.map(() => '?').join(',')})`, clean);
+    for (const r of rows) out.set(Number(r.id), r.name);
+  } catch (e) {
+    console.error('[userNamesById]', e.message);
+  }
+  return out;
+}
+
+// form_pages.fields is a longtext column holding a JSON array. A single
+// unparseable row must not turn into a 500 for the whole form - the editor
+// would show the form as broken and the user could not open it to fix the page.
+function parseStoredFields(raw) {
+  if (raw === null || raw === undefined) return [];
+  if (typeof raw === 'object') return raw;
+  const text = String(raw).trim();
+  if (!text) return [];
+  try {
+    const v = JSON.parse(text);
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    console.error('[parseStoredFields]', e.message);
+    return [];
+  }
+}
+
+async function formPagesOf(formRow) {
   if (!formRow) return null;
+  const names = await userNamesById([formRow.created_by]);
   return {
     id: formRow.id,
     name: formRow.name,
     branchId: formRow.branch_id,
     thumbnailUrl: formRow.thumbnail_url,
-    createdByName: formRow.created_by,
+    createdByName: names.get(Number(formRow.created_by)) || '',
     createdAt: formRow.created_at,
     updatedAt: formRow.updated_at,
     pageCount: null,
@@ -2629,9 +3494,13 @@ app.get('/api/forms', authMiddleware, async (req, res) => {
     const [rows] = await db.query(
       `SELECT f.*, COALESCE((SELECT COUNT(*) FROM form_pages fp WHERE fp.form_id = f.id), 0) as pageCount
        FROM forms f WHERE ${where} ORDER BY f.id DESC LIMIT ? OFFSET ?`, [...params, sz, (pg - 1) * sz]);
+    // `users` is a platform table and is deliberately NOT cloned into each
+    // clinic database, so it cannot be joined from the clinic connection. The
+    // creator's name is resolved with a second platform-side lookup instead.
+    const names = await userNamesById(rows.map((r) => r.created_by));
     const data = rows.map((r) => ({
       id: r.id, name: r.name, branchId: r.branch_id, pageCount: r.pageCount,
-      thumbnailUrl: r.thumbnail_url, createdByName: r.created_by,
+      thumbnailUrl: r.thumbnail_url, createdByName: names.get(r.created_by) || '',
       createdAt: r.created_at, updatedAt: r.updated_at,
     }));
     res.json(paginate(data, count[0].cnt, pg, sz));
@@ -2640,8 +3509,11 @@ app.get('/api/forms', authMiddleware, async (req, res) => {
 app.post('/api/forms', authMiddleware, async (req, res) => {
   try {
     const { name, branchId, pages, thumbnailUrl } = req.body;
+    // created_by is an int FK to users.id. It was hardcoded to the string
+    // 'Owner', so every single create died with "Incorrect integer value:
+    // 'Owner' for column forms.created_by" and no form could ever be saved.
     const [r] = await db.query('INSERT INTO forms (name, branch_id, thumbnail_url, created_by) VALUES (?,?,?,?)',
-      [name || 'Untitled Form', branchId ?? null, thumbnailUrl || null, 'Owner']);
+      [name || 'Untitled Form', branchId ?? null, thumbnailUrl || null, req.userId || null]);
     const formId = r.insertId;
     const pageRows = Array.isArray(pages) ? pages : [];
     for (let i = 0; i < pageRows.length; i++) {
@@ -2649,24 +3521,38 @@ app.post('/api/forms', authMiddleware, async (req, res) => {
         [formId, i, pageRows[i].imageUrl || pageRows[i].image_url || null,
          pageRows[i].fields ? JSON.stringify(pageRows[i].fields) : null]);
     }
-    const [created] = await db.query('SELECT * FROM forms WHERE id=?', [formId]);
-    res.json({ data: formPagesOf(created) });
+    // db.query resolves to [rows, fields]; taking element 0 hands over the rows
+    // ARRAY, not the row, so every field read off it came back undefined and the
+    // create response lost its id and name.
+    const [createdRows] = await db.query('SELECT * FROM forms WHERE id=?', [formId]);
+    res.json({ data: await formPagesOf(createdRows[0]) });
   } catch (e) { console.error('[forms POST]', e.message); res.status(500).json({ error: { message: e.message } }); }
 });
+// The full form, pages included, in the shape the editor expects. Shared by GET
+// and PATCH: the PATCH used to answer {success:true} with no row, and the
+// handler maps result.data straight into toLocalForm, so the update reported
+// "Cannot read properties of undefined (reading 'id')" even though the rename
+// itself had been written.
+async function fullForm(formId) {
+  const [forms] = await db.query('SELECT * FROM forms WHERE id=?', [formId]);
+  if (!forms.length) return null;
+  const f = forms[0];
+  const [pages] = await db.query('SELECT * FROM form_pages WHERE form_id=? ORDER BY page_index', [formId]);
+  const names = await userNamesById([f.created_by]);
+  return {
+    id: f.id, name: f.name, branchId: f.branch_id,
+    thumbnailUrl: f.thumbnail_url,
+    createdByName: names.get(Number(f.created_by)) || '',
+    createdAt: f.created_at, updatedAt: f.updated_at,
+    pageCount: pages.length,
+    pages: pages.map((p) => ({ id: p.id, imageUrl: p.image_url, fields: parseStoredFields(p.fields) })),
+  };
+}
+
 app.get('/api/forms/:id', authMiddleware, async (req, res) => {
   try {
-    const [forms] = await db.query('SELECT * FROM forms WHERE id=?', [req.params.id]);
-    if (!forms.length) return res.status(404).json({ error: { message: 'Not found' } });
-    const [pages] = await db.query('SELECT * FROM form_pages WHERE form_id=? ORDER BY page_index', [req.params.id]);
-    const data = {
-      id: forms[0].id, name: forms[0].name, branchId: forms[0].branch_id,
-      thumbnailUrl: forms[0].thumbnail_url, createdByName: forms[0].created_by,
-      createdAt: forms[0].created_at, updatedAt: forms[0].updated_at,
-      pageCount: pages.length,
-      pages: pages.map((p) => ({
-        id: p.id, imageUrl: p.image_url, fields: p.fields ? JSON.parse(p.fields) : [],
-      })),
-    };
+    const data = await fullForm(req.params.id);
+    if (!data) return res.status(404).json({ error: { message: 'Not found' } });
     res.json({ data });
   } catch (e) { console.error('[forms GET]', e.message); res.status(500).json({ error: { message: e.message } }); }
 });
@@ -2687,7 +3573,9 @@ app.patch('/api/forms/:id', authMiddleware, async (req, res) => {
            pages[i].fields ? JSON.stringify(pages[i].fields) : null]);
       }
     }
-    res.json({ success: true });
+    // Answer with the saved row: the renderer maps result.data into its own
+    // form shape, so a bare {success:true} left it with nothing to show.
+    res.json({ success: true, data: await fullForm(formId) });
   } catch (e) { console.error('[forms PATCH]', e.message); res.status(500).json({ error: { message: e.message } }); }
 });
 app.delete('/api/forms/:id', authMiddleware, async (req, res) => {
@@ -3001,7 +3889,7 @@ app.get('/api/time-format', authMiddleware, (req, res) => res.json({ use12Hour: 
 // â”€â”€â”€ PLATFORM SUPER ADMIN (registered before the /api catch-all) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const superAdminApi = registerSuperAdmin(app, {
   platConn, getClinicConn, createClinicDatabase, bcrypt, makeToken, okClinicSession,
-  DB_NAME, CLINIC_PREFIX,
+  DB_NAME, CLINIC_PREFIX, mysql, DB_OPTS, closeClinicConn,
 });
 
 // Extended console screens (subscriptions, billing, users, analytics, reports,
@@ -3065,6 +3953,6 @@ function startServer(port) {
 module.exports = { app, startServer, dedupeSeedRows, DEDUPE_PLANS };
 
 // Auto-start when run directly (not required as module)
-if (require.main === module) {
+if (require.main === module && !process.versions.electron) {
   startServer();
 }

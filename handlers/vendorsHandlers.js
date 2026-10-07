@@ -152,6 +152,54 @@ module.exports = function setupVendorsHandlers() {
     }
   });
 
+  // ── Purchases (stock bought from this vendor) ────────────────────────────
+  // Saving a purchase adds the linked products' quantity back to inventory on
+  // the server; deleting one reverses it there too, so the renderer only ever
+  // sends the entry itself.
+  ipcMain.handle("retrieve-vendor-purchases", async (_event, vendorId) => {
+    try {
+      const result = await saasClient.listVendorPurchases(vendorId);
+      return { success: true, data: (result && result.data) || [] };
+    } catch (err) {
+      console.error("[retrieve-vendor-purchases]", err);
+      return { success: false, message: err.message, data: [] };
+    }
+  });
+
+  ipcMain.handle("add-vendor-purchase", async (_event, payload = {}) => {
+    try {
+      const vendorId = payload.vendorId ?? payload.vendor_id;
+      if (!vendorId) return { success: false, message: "Vendor is required" };
+      const result = await saasClient.createVendorPurchase(vendorId, {
+        purchaseDate: payload.purchaseDate ?? payload.purchase_date ?? undefined,
+        paymentStatus: payload.paymentStatus ?? payload.payment_status ?? undefined,
+        notes: payload.notes || undefined,
+        items: (payload.items || []).map((it) => ({
+          productId: it.productId ?? it.product_id ?? null,
+          itemName: it.itemName ?? it.item_name ?? it.name,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice ?? it.unit_price,
+        })),
+      });
+      return { success: true, message: "Purchase recorded, stock updated", data: result && result.data };
+    } catch (err) {
+      console.error("[add-vendor-purchase]", err);
+      return { success: false, message: err.message };
+    }
+  });
+
+  ipcMain.handle("delete-vendor-purchase", async (_event, payload = {}) => {
+    try {
+      const vendorId = payload.vendorId ?? payload.vendor_id;
+      const purchaseId = payload.purchaseId ?? payload.purchase_id;
+      await saasClient.deleteVendorPurchase(vendorId, purchaseId);
+      return { success: true, message: "Purchase removed, stock reverted" };
+    } catch (err) {
+      console.error("[delete-vendor-purchase]", err);
+      return { success: false, message: err.message };
+    }
+  });
+
   ipcMain.handle("retrieve-vendor-settlements", async (_event, vendorId) => {
     try {
       const result = await saasClient.listVendorSettlements({ vendorId: vendorId || undefined });

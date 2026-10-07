@@ -426,6 +426,27 @@
   // ── clinics ─────────────────────────────────────────────────────────────
   let clinicsState = { page: 1, search: '', status: '', plan: '', total: 0, pageSize: 20 };
 
+  // Deleting a clinic destroys its database, so the button only appears for the
+  // one role the API will accept it from.
+  function canDelete() { return !!admin && (admin.role === 'root_super_admin' || admin.role === 'super_admin'); }
+
+  async function deleteClinic(id, name) {
+    if (!(await confirmDialog(
+      'Delete ' + name + '?',
+      'This permanently removes the clinic, its owner account and its entire database — patients, billing, appointments and files all go with it.' +
+      '<br><b>This cannot be undone.</b>',
+      true))) return false;
+    try {
+      await api('/clinics/' + id, { method: 'DELETE', body: { confirmName: name } });
+      toast('Clinic deleted');
+      // Deleting the last row on a later page would otherwise leave the user
+      // staring at an empty table with a pager that has nothing behind it.
+      if (clinicsState.shown === 1 && clinicsState.page > 1) clinicsState.page--;
+      loadClinics();
+      return true;
+    } catch (e) { toast(e.message, 'error'); return false; }
+  }
+
   async function viewClinics() {
     el('view').innerHTML =
       toolbar(
@@ -446,6 +467,7 @@
     const q = new URLSearchParams({ page: clinicsState.page, pageSize: clinicsState.pageSize, search: clinicsState.search, status: clinicsState.status, plan: clinicsState.plan });
     const res = await api('/clinics?' + q.toString());
     clinicsState.total = res.total;
+    clinicsState.shown = res.data.length;
     const rows = res.data.map((c) =>
       '<tr class="border-b border-slate-50 hover:bg-slate-50/60">' +
         '<td class="td"><div class="font-semibold text-slate-700">' + esc(c.clinicName) + '</div><div class="text-xs text-slate-400">#' + c.id + ' · ' + esc(c.ownerName || '—') + '</div></td>' +
@@ -458,6 +480,7 @@
         '<td class="td text-right whitespace-nowrap">' +
           '<button data-id="' + c.id + '" class="cl-view btn btn-ghost !py-1 !px-3 text-xs">Manage</button> ' +
           '<button data-id="' + c.id + '" class="cl-imp btn btn-ghost !py-1 !px-3 text-xs !border-brand-300 !text-brand-950">Login as</button>' +
+          (canDelete() ? ' <button data-id="' + c.id + '" data-name="' + esc(c.clinicName || '') + '" class="cl-del btn btn-ghost !py-1 !px-3 text-xs !border-red-200 !text-red-600">Delete</button>' : '') +
         '</td>' +
       '</tr>').join('') || emptyRow(8, 'No clinics found.');
     el('cl_table').innerHTML = table([
@@ -466,6 +489,7 @@
     ], rows);
     el('cl_table').querySelectorAll('.cl-view').forEach((b) => b.onclick = () => openClinic(Number(b.dataset.id)));
     el('cl_table').querySelectorAll('.cl-imp').forEach((b) => b.onclick = () => impersonate(Number(b.dataset.id)));
+    el('cl_table').querySelectorAll('.cl-del').forEach((b) => b.onclick = () => deleteClinic(Number(b.dataset.id), b.dataset.name));
     const tp = res.totalPages || 1;
     el('cl_pager').innerHTML = '<div>Showing ' + num((clinicsState.page - 1) * clinicsState.pageSize + 1) + '–' + num(Math.min(clinicsState.page * clinicsState.pageSize, res.total)) + ' of ' + num(res.total) + '</div>' +
       '<div class="flex gap-2"><button id="pg_prev" class="btn btn-ghost !py-1 ' + (clinicsState.page <= 1 ? 'opacity-40 pointer-events-none' : '') + '">Prev</button>' +
@@ -544,6 +568,7 @@
               (c.status === 'suspended' || c.status === 'disabled'
                 ? '<button id="d_activate" class="btn btn-primary">Reactivate</button>'
                 : '<button id="d_suspend" class="btn btn-ghost !border-amber-300 !text-amber-700">Suspend</button>') +
+              (canDelete() && c.id !== 1 ? ' <button id="d_delete" class="btn btn-danger !ml-2">Delete clinic</button>' : '') +
             '</div>' +
           '</div>' +
           '<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">' +
@@ -574,6 +599,9 @@
       el('d_imp').onclick = () => impersonate(id);
       if (el('d_suspend')) el('d_suspend').onclick = () => clinicAction(id, 'status', { status: 'suspended' }, 'Clinic suspended');
       if (el('d_activate')) el('d_activate').onclick = () => clinicAction(id, 'status', { status: 'active' }, 'Clinic reactivated');
+      if (el('d_delete')) el('d_delete').onclick = async () => {
+        if (await deleteClinic(id, c.clinicName)) { closeModal(); render(); }
+      };
       el('d_edit').onclick = () => openClinicEdit(c);
     } catch (e) { el('cl_detail').innerHTML = '<div class="text-red-600">' + esc(e.message) + '</div>'; }
   };

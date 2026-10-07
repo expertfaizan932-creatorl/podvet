@@ -1,27 +1,118 @@
 {
   "name": "podvet",
-  "version": "5.0.10-web",
-  "description": "PodVet — standalone Node.js web edition of the PodVet veterinary management app. No Electron, no window runtime; the exact same React frontend and handler logic served by a pure Express + MySQL backend.",
+  "version": "5.0.11",
+  "productName": "PodVet",
+  "description": "PodVet - Veterinary Management System. Complete desktop application for veterinary clinics with patient management, billing, appointments, boarding and more.",
   "license": "MIT",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "main.js",
+  "author": {
+    "name": "PodVet",
+    "email": "support@podvet.com"
+  },
   "scripts": {
     "start": "node index.js",
-    "web": "node index.js"
+    "postinstall": "node scripts/link-compat.js",
+    "fetch:mysql": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-mysql.ps1",
+    "fetch:electron": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-electron.ps1",
+    "fetch": "npm run fetch:mysql && npm run fetch:electron",
+    "pack": "npm run fetch && electron-builder --dir --publish never",
+    "dist": "npm run fetch && electron-builder --win --x64 --publish never",
+    "build": "npm run fetch && electron-builder --win --x64 --publish never",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
+  },
+  "build": {
+    "appId": "com.podvet.desktop",
+    "productName": "PodVet",
+    "copyright": "Copyright © 2026 PodVet",
+    "electronVersion": "31.7.7",
+    "electronDist": "vendor/electron-dist",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://podvet.biztrack.uk/updates/"
+      }
+    ],
+    "files": [
+      "**/*",
+      "!dist{,/**}",
+      "!vendor{,/**}",
+      "!.git{,/**}",
+      "!.github{,/**}",
+      "!deploy{,/**}",
+      "!scripts{,/**}",
+      "!logo_extract{,/**}",
+      "!**/*.log",
+      "!**/*.md",
+      "!logo sheet.pdf",
+      "!podvet 1.png",
+      "!.env",
+      "!node_modules/.bin{,/**}"
+    ],
+    "asarUnpack": [
+      "**/node_modules/bcrypt/**"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/mysql",
+        "to": "mysql"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PodVet",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "installerLanguages": [
+        "en_US"
+      ],
+      "language": "1033"
+    },
+    "asar": true,
+    "compression": "maximum"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.2.1",
-    "electron": "file:compat/electron-compat",
     "electron-log": "file:compat/electron-log",
+    "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "image-size": "^2.0.2",
     "jpeg-js": "^0.4.4",
     "jspdf": "^3.0.2",
     "mysql2": "^3.14.3",
+    "nodemailer": "^6.9.16",
     "pdfkit": "^0.18.0",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron-builder": "^25.1.8"
   }
 }

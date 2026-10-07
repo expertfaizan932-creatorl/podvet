@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation | PodVet - Veterinary Clinic Management Software</title>
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #1e1b26;
+            overflow-x: hidden;
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at 50% 20%, rgb(var(--brand-700)) 0%, rgb(var(--brand-900)) 60%, rgb(var(--brand-dark)) 100%);
+        }
+        .bg-particles {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+                              radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+        .hero-photo {
+            background-image: linear-gradient(180deg, rgba(13, 46, 80, 0.92), rgba(27, 110, 161, 0.78)), url('/img/blog-vet-exam.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+    <!-- NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Solutions <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-48 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/solutions/veterinary-ai" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Veterinary AI</a>
+                                <a href="/solutions/solo-practitioners" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Solo Practitioners</a>
+                                <a href="/solutions/midsized-clinics" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Midsized Clinics</a>
+                                <a href="/solutions/animal-hospitals" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Hospitals</a>
+                                <a href="/solutions/mobile-vets" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Mobile Veterinarians</a>
+                                <a href="/solutions/data-migration" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Data Migration</a>
+                            </div>
+                        </div>
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Resources <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-44 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/blog" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Blog</a>
+                                <a href="/docs" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Documentation</a>
+                                <a href="/help" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Help Center</a>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <button class="text-brand-300 hover:text-white text-sm transition hidden sm:inline-block">
+                        <i class="fa-solid fa-globe mr-1"></i>
+                    </button>
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/docs" class="block text-brand-200 hover:text-white text-sm">Documentation</a>
+            <a href="/help" class="block text-brand-200 hover:text-white text-sm">Help Center</a>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="relative hero-photo pt-20 pb-20 text-white overflow-hidden">
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[280px] bg-brand-600/20 blur-[120px] rounded-full pointer-events-none"></div>
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-900/60 border border-brand-400/30 text-xs font-medium text-brand-200 mb-6">
+                <i class="fa-solid fa-book-open"></i> Documentation
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-5">Run your clinic on PodVet</h1>
+            <p class="max-w-2xl mx-auto text-base sm:text-lg text-brand-200 leading-relaxed">
+                Step-by-step guides covering every module: appointments, records, billing, inventory, messaging and reports.
+            </p>
+        </div>
+    </section>
+
+    <!-- JUMP TO -->
+    <section class="py-14 bg-white">
+        <div class="max-w-6xl mx-auto px-4">
+            <h2 class="text-xl font-extrabold text-brand-900 mb-2">Jump to a guide</h2>
+            <p class="text-sm text-gray-500 mb-8">Pick a module to see how it works inside PodVet.</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <a href="#getting-started" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-rocket text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Getting Started</span></a>
+                <a href="#appointments" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-calendar-check text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Appointments</span></a>
+                <a href="#clients" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-address-book text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Clients &amp; Pets</span></a>
+                <a href="#medical" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-notes-medical text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Medical Records</span></a>
+                <a href="#vaccinations" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-syringe text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Vaccinations</span></a>
+                <a href="#inventory" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-boxes-stacked text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Inventory</span></a>
+                <a href="#billing" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-file-invoice-dollar text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Billing &amp; Payments</span></a>
+                <a href="#messaging" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-brands fa-whatsapp text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">SMS &amp; WhatsApp</span></a>
+                <a href="#reports" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-chart-pie text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Reports</span></a>
+                <a href="#settings" class="rounded-2xl bg-brand-surface border border-brand-100 px-4 py-5 hover:border-brand-400 hover:shadow-lg transition group"><i class="fa-solid fa-gear text-brand-600 mr-2"></i><span class="text-xs font-bold text-gray-700 group-hover:text-brand-800">Settings &amp; Data</span></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- GETTING STARTED -->
+    <section id="getting-started" class="py-14 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-rocket text-brand-600"></i> Getting Started</h2>
+            <div class="grid md:grid-cols-3 gap-5">
+                <div class="bg-white rounded-2xl border border-brand-100 p-6">
+                    <h3 class="font-bold text-sm mb-2">1. Sign up free</h3>
+                    <p class="text-xs text-gray-600 leading-relaxed">Create your account at <a href="/signup" class="text-brand-700 font-bold underline">/signup</a>. You get a 1-month free trial of everything in Standard - no card required.</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-brand-100 p-6">
+                    <h3 class="font-bold text-sm mb-2">2. Set up your clinic</h3>
+                    <p class="text-xs text-gray-600 leading-relaxed">Add your clinic profile, staff and permissions in Settings. Our team helps with onboarding and offers a setup call before your trial ends.</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-brand-100 p-6">
+                    <h3 class="font-bold text-sm mb-2">3. Import or add data</h3>
+                    <p class="text-xs text-gray-600 leading-relaxed">Bring in clients, pets, services and products with Excel/JSON import, or enter them directly. Ask us for free migration help from your old software.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- APPOINTMENTS -->
+    <section id="appointments" class="py-14 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-calendar-check text-brand-600"></i> Appointments &amp; Daily Flowboard</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">The schedule is a per-vet daily flowboard. Open <b>Appointments</b> and press "new appointment": find an existing patient or add a new client + pet, then pick the pet, doctor, date and time. Add services and/or products and any notes - the status defaults to <b>Confirmed</b>.</p>
+            <div class="grid md:grid-cols-2 gap-5 text-xs text-gray-600 leading-relaxed">
+                <ul class="space-y-3 bg-brand-surface rounded-2xl border border-brand-100 p-6">
+                    <li><b class="text-brand-800">Categories.</b> Consultation &amp; General Care, Preventive Care, Diagnostics, Specialized Care, Surgery, Grooming, Boarding and Other.</li>
+                    <li><b class="text-brand-800">Row actions.</b> Edit, cancel, open the Medical Record, preview/reprint the invoice, Complete Payment, print the POS slip, Deduct from stock, add Custom Reminders or open WhatsApp.</li>
+                </ul>
+                <ul class="space-y-3 bg-brand-surface rounded-2xl border border-brand-100 p-6">
+                    <li><b class="text-brand-800">Filters &amp; status.</b> Payment filters cover Paid / Partially Paid / Unpaid / Billed. Discounts can be percent or fixed plus a coupon.</li>
+                    <li><b class="text-brand-800">Auto-scheduler.</b> The scheduler can fill empty slots so no consultation time goes to waste.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section id="clients" class="py-14 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-address-book text-brand-600"></i> Clients &amp; Patient Records</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">One profile per client holding every pet, invoice balance, visit history and preferences. Add a client and attach each of their pets (species, breed, birth date, sex, weight and medical notes).</p>
+            <div class="grid md:grid-cols-2 gap-5 text-xs text-gray-600 leading-relaxed">
+                <div class="bg-white rounded-2xl border border-brand-100 p-6">
+                    <h3 class="font-bold text-sm text-brand-800 mb-2">Patient profile tabs</h3>
+                    <p>Age, weight history, appointments, medical records, vaccinations, allergies, medications, documents and more - everything about the pet in one screen.</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-brand-100 p-6">
+                    <h3 class="font-bold text-sm text-brand-800 mb-2">Stay connected</h3>
+                    <p>Spot clients who haven't visited in months and re-engage them in one click, or send SMS/WhatsApp messages straight from the profile.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MEDICAL -->
+    <section id="medical" class="py-14 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-notes-medical text-brand-600"></i> Medical Records &amp; SOAP Notes</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Medical records are <b>SOAP-based</b>: Subjective, Objective, Assessment and Plan - with AI-assisted drafting to save typing. Each record includes an examination checklist, exam systems, weight, temperature, a Body Condition Score (BCS), diagnosis, treatment, prescriptions and lab tests.</p>
+            <div class="grid md:grid-cols-3 gap-5 text-xs text-gray-600 leading-relaxed">
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Record types.</b> Consultations, follow-ups, vaccines, surgeries, boarding, grooming and other service types - each with its own template.</div>
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Prescriptions.</b> Draft and export prescriptions as PDF with your clinic branding.</div>
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Boarding.</b> Consent forms, daily/hospitalization summaries, feeding and medication notes, plus a checkout invoice.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VACCINATIONS -->
+    <section id="vaccinations" class="py-14 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-syringe text-brand-600"></i> Vaccination Tracker</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Track every vaccine across the whole patient list. PodVet computes when each booster is due, highlights overdue pets and sends automatic SMS &amp; WhatsApp reminders on schedule - so patients come back exactly when they should.</p>
+        </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section id="inventory" class="py-14 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-boxes-stacked text-brand-600"></i> Inventory &amp; Vendors</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Manage products, stock levels and purchase orders. When you sell or use a product on an appointment you can <b>Deduct from stock</b> (with quantity) right from the appointment row - keeping inventory always in sync.</p>
+            <div class="grid md:grid-cols-2 gap-5 text-xs text-gray-600 leading-relaxed">
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Vendors &amp; consignment.</b> Record vendor details, track consignment stock that isn't owned yet, and know what to reorder before you run out.</div>
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Stock views.</b> Filter products, see low-stock items and expiry-sensitive products, and spot slow movers.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BILLING -->
+    <section id="billing" class="py-14 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar text-brand-600"></i> Billing, Invoices &amp; Payments</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Invoice directly from appointments or the quick bill screen. PodVet tracks Paid, Partially Paid, Unpaid and Billed states, and you can print the invoice, the POS slip or reprint any document.</p>
+            <div class="grid md:grid-cols-2 gap-5 text-xs text-gray-600 leading-relaxed">
+                <div class="bg-white rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Customisable.</b> Percent or fixed discounts, coupons, a loyalty card, and an optional first-time customer fee (default Rs 1,050) that you can change in Settings.</div>
+                <div class="bg-white rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Payment proofs.</b> Clients can submit payment proofs; you review and reconcile them from the payment history.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MESSAGING -->
+    <section id="messaging" class="py-14 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-brands fa-whatsapp text-brand-600"></i> SMS &amp; WhatsApp Messaging</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Send appointment reminders, vaccination boosters and follow-ups over SMS or WhatsApp using ready-made templates. Delivery receipts and opt-out handling are automatic, and when a client replies the thread stays attached to their file.</p>
+        </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="reports" class="py-14 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-brand-600"></i> Reports &amp; Analytics</h2>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">Understand your clinic's performance: revenue, appointment loads, payment statuses and patient activity. Every report can be exported (including monthly expense lists as PDF) and statements follow your own receipt branding.</p>
+        </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings" class="py-14 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl font-extrabold text-brand-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-gear text-brand-600"></i> Settings &amp; Data</h2>
+            <div class="grid md:grid-cols-3 gap-5 text-xs text-gray-600 leading-relaxed">
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Users &amp; roles.</b> OWNER, ADMIN and USER permissions control who sees and does what in the clinic.</div>
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Clinic branding.</b> Add your logo, accent colour and bank details to invoices and documents.</div>
+                <div class="bg-brand-surface rounded-2xl border border-brand-100 p-6"><b class="text-brand-800">Data management.</b> Export all your data as Excel, or import JSON/XLSX/XLS. Your plan and payment history live under Current Plan.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-16 bg-white">
+        <div class="max-w-4xl mx-auto px-4 rounded-3xl hero-photo py-14 text-center text-white">
+            <h2 class="text-2xl sm:text-3xl font-extrabold mb-3">Still stuck? We are one message away.</h2>
+            <p class="text-brand-200 text-sm mb-8">Browse the Help Center for quick answers or reach our team directly.</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="/help" class="inline-block bg-brand-600 hover:bg-brand-500 text-white font-bold px-8 py-3.5 rounded-full shadow-xl transition hover:scale-105">Help Center</a>
+                <a href="/#pricing" class="inline-block bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold px-8 py-3.5 rounded-full shadow-xl transition hover:scale-105">See Pricing</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-black text-white pt-14 pb-10 border-t border-gray-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 pb-10 border-b border-gray-800">
+                <div class="col-span-2 space-y-3">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain">
+                    <p class="text-xs text-gray-400 leading-relaxed max-w-xs">Veterinary clinic management with AI-assisted SOAP notes, records, billing and reminders - in one platform.</p>
+                    <div class="flex items-center space-x-3 text-gray-400 text-sm pt-1">
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-x-twitter"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-facebook"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-linkedin"></i></a>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Pages</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/blog" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="/faq" class="hover:text-white transition">Frequently Asked Questions</a></li>
+                        <li><a href="/docs" class="hover:text-white transition">Documentation</a></li>
+                        <li><a href="/help" class="hover:text-white transition">Help Center</a></li>
+                        <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Legal</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="/terms" class="hover:text-white transition">Terms of Use</a></li>
+                        <li><a href="/signup" class="hover:text-white transition">Start a free trial</a></li>
+                        <li><a href="/app" class="hover:text-white transition">Log in to PodVet</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-gray-500 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <div class="flex space-x-4">
+                    <a href="/privacy" class="hover:underline">Privacy</a>
+                    <a href="/terms" class="hover:underline">Terms</a>
+                    <a href="/contact" class="hover:underline">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

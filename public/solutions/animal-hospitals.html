@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <title>Hospitals | PodVet</title>
+    <meta name="description" content="Bring the entire operation of your multi-unit hospital together on one platform — from the Flowboard to financial reports, from inventory and accounts to staff shifts. Prevent chaos, institutionalize order.">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: #1e1b26; overflow-x: hidden; }
+        .hero-photo {
+            background-image: linear-gradient(180deg, rgba(13, 46, 80, 0.92), rgba(27, 110, 161, 0.78)), url('/img/about-dogs-running.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+<header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Solutions <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-52 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/solutions/veterinary-ai" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Veterinary AI</a>
+                                <a href="/solutions/solo-practitioners" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Solo Practitioners</a>
+                                <a href="/solutions/midsized-clinics" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Midsized Clinics</a>
+                                <a href="/solutions/animal-hospitals" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Hospitals</a>
+                                <a href="/solutions/mobile-vets" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Mobile Veterinarians</a>
+                                <a href="/solutions/data-migration" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Data Migration</a>
+                            </div>
+                        </div>
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <a href="/blog" class="hover:text-white transition">Blog</a>
+                        <a href="/faq" class="hover:text-white transition">FAQ</a>
+                        <a href="/contact" class="hover:text-white transition">Contact</a>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/solutions/veterinary-ai" class="block text-brand-200 hover:text-white text-sm">Veterinary AI</a>
+            <a href="/solutions/solo-practitioners" class="block text-brand-200 hover:text-white text-sm">Solo Practitioners</a>
+            <a href="/solutions/midsized-clinics" class="block text-brand-200 hover:text-white text-sm">Midsized Clinics</a>
+            <a href="/solutions/animal-hospitals" class="block text-brand-200 hover:text-white text-sm">Hospitals</a>
+            <a href="/solutions/mobile-vets" class="block text-brand-200 hover:text-white text-sm">Mobile Veterinarians</a>
+            <a href="/solutions/data-migration" class="block text-brand-200 hover:text-white text-sm">Data Migration</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/faq" class="block text-brand-200 hover:text-white text-sm">FAQ</a>
+            <a href="/contact" class="block text-brand-200 hover:text-white text-sm">Contact</a>
+        </div>
+    </header>
+
+    <!-- HERO — the first main section: audience, promise, supporting line, CTA -->
+    <section class="relative hero-photo pt-16 pb-20 text-white overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <nav class="text-xs text-brand-200 mb-5 flex items-center justify-center gap-2">
+                <a href="/" class="hover:text-white">Home</a><span class="opacity-60">/</span><span class="text-white font-semibold">Hospitals</span>
+            </nav>
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-900/60 border border-brand-400/30 text-xs font-medium text-brand-200 mb-5">
+                <i class="fa-solid fa-tower-broadcast"></i> For Animal Hospitals
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-4">Run your large clinic from one center, in flawless order</h1>
+            <p class="max-w-2xl mx-auto text-base sm:text-lg text-brand-200 leading-relaxed mb-8">Bring the entire operation of your multi-unit hospital together on one platform — from the Flowboard to financial reports, from inventory and accounts to staff shifts. Prevent chaos, institutionalize order.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-sm px-6 py-3 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0"><i class="fa-solid fa-rocket mr-2"></i>Try for Free</a>
+                <a href="/demo" class="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-bold text-sm px-6 py-3 rounded-full transition-all duration-200"><i class="fa-solid fa-shapes mr-2"></i>View all modules</a>
+            </div>
+        </div>
+    </section>
+
+    <main class="py-12 bg-brand-surface">
+
+        <!-- Opening statement -->
+        <section class="max-w-3xl mx-auto px-4 text-center mb-14">
+            <p class="text-lg sm:text-xl text-gray-700 leading-relaxed">Many vets, technicians, and front-desk staff, hundreds of patients, and simultaneous transactions. PodVet brings all this activity into one center, running every unit with the same live information, in the same order.</p>
+        </section>
+
+        <!-- Stats row -->
+        <section class="max-w-6xl mx-auto px-4 mb-14">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+                    <p class="text-3xl font-extrabold text-brand-900 mb-1">Live</p>
+                    <p class="text-sm text-gray-600">Real-time status of all patients</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+                    <p class="text-3xl font-extrabold text-brand-900 mb-1">Per unit</p>
+                    <p class="text-sm text-gray-600">Exam, surgery, and hospitalization</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+                    <p class="text-3xl font-extrabold text-brand-900 mb-1">One file</p>
+                    <p class="text-sm text-gray-600">Labs, imaging, and notes together</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sections -->
+        <section class="max-w-6xl mx-auto px-4 space-y-8">
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-table-columns"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">With the Flowboard, instantly see which patient is where</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">Track live from one screen which unit, which vet, and which stage of treatment every patient in the hospital is at. Waiting, in-treatment, and to-be-discharged patients are separated; no patient is missed.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-folder-open"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">The whole team easily accesses all medical records and treatments</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">Even when shifts change or a patient is handed off to another vet, the treatment process continues without interruption. Exam notes, lab results, imaging, SOAP records, and treatment plans come together in one patient file.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-comments"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">Maximum, recorded communication with your clients</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">Reach clients on every channel via SMS, WhatsApp, email, and mobile notifications; the entire correspondence history is stored in the patient file. What was discussed with which client is always recorded.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-warehouse"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">Manage stock, inventory, and accounts from one hand</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">Track medicine, consumables, and product stock in real time; let stock be deducted automatically with each use, and get an alert at critical levels. See supplier and client accounts and the receivables-payables balance on one screen.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-chart-pie"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">Run your hospital's profitability by the numbers</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">See revenue-expense and profitability analysis by unit, vet, and service on one panel. Keep the receivables-payables balance, daily cash flow, top-earning services, and idle capacity clear.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <span class="shrink-0 w-11 h-11 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-lg"><i class="fa-solid fa-users-gear"></i></span>
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">Put your staff and shift system in order</h2>
+                        <p class="text-sm sm:text-base text-gray-600 leading-relaxed">Define role-based permissions for vets, technicians, and front-desk staff; manage shift and on-call plans from one calendar. Who works which shift, who is available, whose task is what — it is all clear.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Other solutions -->
+        <div class="max-w-6xl mx-auto px-4 mt-14"><h3 class="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Explore other solutions</h3><div class="flex flex-wrap gap-2">
+        <a href="/solutions/veterinary-ai" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-wand-magic-sparkles text-brand-700"></i> Veterinary AI</a>
+        <a href="/solutions/solo-practitioners" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-user-doctor text-brand-700"></i> Solo Practitioners</a>
+        <a href="/solutions/midsized-clinics" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-hospital text-brand-700"></i> Midsized Clinics</a>
+        <a href="/solutions/animal-hospitals" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-tower-broadcast text-brand-700"></i> Hospitals</a>
+        <a href="/solutions/mobile-vets" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-van-shuttle text-brand-700"></i> Mobile Veterinarians</a>
+        <a href="/solutions/data-migration" class="inline-flex items-center gap-2 text-xs bg-white border border-gray-200 hover:border-brand-400 text-gray-700 hover:text-brand-800 px-4 py-2 rounded-full font-semibold transition shadow-sm"><i class="fa-solid fa-arrow-right-arrow-left text-brand-700"></i> Data Migration</a></div></div>
+    </main>
+
+    <section class="py-12 bg-brand-900">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-3">Ready to put PodVet to work in your clinic?</h2>
+            <p class="text-brand-200 text-sm sm:text-base mb-6">Join 400+ veterinarians who switched to PodVet.</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-sm px-6 py-3 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0"><i class="fa-solid fa-rocket mr-2"></i>Start your free trial</a>
+                <a href="/contact" class="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-bold text-sm px-6 py-3 rounded-full transition-all duration-200">Book a demo</a>
+            </div>
+        </div>
+    </section>
+
+<footer class="bg-brand-950 text-brand-200">
+        <div class="max-w-6xl mx-auto px-4 py-12">
+            <div class="flex flex-col sm:flex-row justify-between gap-6 mb-8">
+                <div class="max-w-sm">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain mb-3">
+                    <p class="text-xs leading-relaxed text-brand-200/70">AI-driven veterinary clinic management &mdash; appointments, records, invoicing and reminders in one place.</p>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/" class="block hover:text-white transition">Home</a>
+                    <a href="/#pricing" class="block hover:text-white transition">Pricing</a>
+                    <a href="/about" class="block hover:text-white transition">About</a>
+                    <a href="/contact" class="block hover:text-white transition">Contact</a>
+                </div>
+                <div class="text-xs space-y-2">
+                    <a href="/blog" class="block hover:text-white transition">Blog</a>
+                    <a href="/docs" class="block hover:text-white transition">Documentation</a>
+                    <a href="/help" class="block hover:text-white transition">Help Center</a>
+                    <a href="/faq" class="block hover:text-white transition">FAQ</a>
+                    <a href="/privacy" class="block hover:text-white transition">Privacy</a>
+                    <a href="/terms" class="block hover:text-white transition">Terms</a>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-brand-200/60 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-brand-800/50">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <a href="/app" class="hover:text-white transition">Open the live app <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

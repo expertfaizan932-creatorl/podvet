@@ -409,6 +409,12 @@ module.exports = {
   listVendorSettlements: (params) => apiFetch(`/api/vendors/settlements${queryString(params)}`, { auth: true }),
   getConsignmentPeriodSummary: (params) =>
     apiFetch(`/api/vendors/consignment-period-summary${queryString(params)}`, { auth: true }),
+  // Stock bought from a vendor (see vendor_purchases in db/schema.sql).
+  listVendorPurchases: (id) => apiFetch(`/api/vendors/${id}/purchases`, { auth: true }),
+  createVendorPurchase: (id, payload) =>
+    apiFetch(`/api/vendors/${id}/purchases`, { method: 'POST', auth: true, body: payload }),
+  deleteVendorPurchase: (id, purchaseId) =>
+    apiFetch(`/api/vendors/${id}/purchases/${purchaseId}`, { method: 'DELETE', auth: true }),
 
   // ── Products ────────────────────────────────────────────────────────────
   listProducts: (params) => apiFetch(`/api/products${queryString(params)}`, { auth: true }),

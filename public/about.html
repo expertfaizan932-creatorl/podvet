@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us | PodVet - Veterinary Clinic Management Software</title>
+    <link rel="icon" href="/brand/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon-180.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: 'rgb(var(--brand-50) / <alpha-value>)',
+                            100: 'rgb(var(--brand-100) / <alpha-value>)',
+                            200: 'rgb(var(--brand-200) / <alpha-value>)',
+                            300: 'rgb(var(--brand-300) / <alpha-value>)',
+                            400: 'rgb(var(--brand-400) / <alpha-value>)',
+                            500: 'rgb(var(--brand-500) / <alpha-value>)',
+                            600: 'rgb(var(--brand-600) / <alpha-value>)',
+                            700: 'rgb(var(--brand-700) / <alpha-value>)',
+                            800: 'rgb(var(--brand-800) / <alpha-value>)',
+                            900: 'rgb(var(--brand-900) / <alpha-value>)',
+                            950: 'rgb(var(--brand-950) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-dark) / <alpha-value>)',
+                            surface: 'rgb(var(--brand-surface) / <alpha-value>)'
+                        },
+                        accent: {
+                            yellow: '#f8e327',
+                            yellowHover: '#e5d119'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --brand-50: 246 251 254;
+            --brand-100: 246 251 254;
+            --brand-200: 242 249 253;
+            --brand-300: 220 238 249;
+            --brand-400: 194 225 245;
+            --brand-500: 146 202 237;
+            --brand-600: 111 185 231;
+            --brand-700: 85 172 226;
+            --brand-800: 59 159 222;
+            --brand-900: 36 146 214;
+            --brand-950: 31 125 183;
+            --brand-dark: 27 110 161;
+            --brand-surface: 242 249 253;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #1e1b26;
+            overflow-x: hidden;
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at 50% 20%, rgb(var(--brand-700)) 0%, rgb(var(--brand-900)) 60%, rgb(var(--brand-dark)) 100%);
+        }
+        .bg-particles {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+                              radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+        .hero-photo {
+            background-image: linear-gradient(180deg, rgba(13, 46, 80, 0.92), rgba(27, 110, 161, 0.78)), url('/img/about-dogs-running.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="antialiased text-gray-900">
+
+    <!-- NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 bg-brand-900 border-b border-brand-900/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto pr-4 sm:pr-6 lg:pr-8 pl-2 sm:pl-4 lg:pl-6">
+            <div class="flex items-center justify-between h-20">
+
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <a href="/" class="flex items-center group">
+                        <img src="/brand/logo-reversed.png" alt="PodVet logo" class="h-10 w-auto object-contain group-hover:opacity-90 transition-opacity">
+                    </a>
+
+                    <!-- Nav Links -->
+                    <nav class="hidden md:flex items-center space-x-8 ml-16 text-sm font-medium text-brand-200">
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Solutions <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-48 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/solutions/veterinary-ai" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Veterinary AI</a>
+                                <a href="/solutions/solo-practitioners" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Solo Practitioners</a>
+                                <a href="/solutions/midsized-clinics" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Midsized Clinics</a>
+                                <a href="/solutions/animal-hospitals" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Hospitals</a>
+                                <a href="/solutions/mobile-vets" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Mobile Veterinarians</a>
+                                <a href="/solutions/data-migration" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Data Migration</a>
+                            </div>
+                        </div>
+                        <a href="/#features" class="hover:text-white transition">Features</a>
+                        <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+                        <div class="relative group cursor-pointer py-2">
+                            <span class="hover:text-white transition flex items-center gap-1">
+                                Resources <i class="fa-solid fa-chevron-down text-[10px] opacity-70 group-hover:rotate-180 transition-transform"></i>
+                            </span>
+                            <div class="absolute left-0 top-full hidden group-hover:block w-40 bg-brand-900 border border-brand-800/80 rounded-xl shadow-2xl p-2 z-50">
+                                <a href="/blog" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Blog</a>
+                                <a href="/docs" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Documentation</a>
+                                <a href="/help" class="block px-3 py-2 text-xs text-brand-200 hover:bg-brand-800/50 hover:text-white rounded-lg">Help Center</a>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="flex items-center space-x-5">
+                    <button class="text-brand-300 hover:text-white text-sm transition hidden sm:inline-block">
+                        <i class="fa-solid fa-globe mr-1"></i>
+                    </button>
+                    <a href="/app" class="text-white hover:text-brand-200 text-sm font-semibold transition px-2">Log In</a>
+                    <a href="/signup" class="bg-accent-yellow hover:bg-accent-yellowHover text-brand-dark font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full transition-all duration-200 shadow-md transform hover:-translate-y-0.5 active:translate-y-0">Try for Free</a>
+
+                    <!-- Mobile Hamburger -->
+                    <button id="mobile-menu-btn" class="md:hidden text-brand-200 text-xl focus:outline-none">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Container -->
+        <div id="mobile-menu" class="hidden md:hidden bg-brand-950 px-6 py-4 space-y-3 border-b border-brand-800/50">
+            <a href="/" class="block text-brand-200 hover:text-white text-sm">Home</a>
+            <a href="/#features" class="block text-brand-200 hover:text-white text-sm">Features</a>
+            <a href="/#pricing" class="block text-brand-200 hover:text-white text-sm">Pricing</a>
+            <a href="/blog" class="block text-brand-200 hover:text-white text-sm">Blog</a>
+            <a href="/faq" class="block text-brand-200 hover:text-white text-sm">FAQ</a>
+            <a href="/contact" class="block text-brand-200 hover:text-white text-sm">Contact</a>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="relative hero-photo pt-16 pb-20 text-white overflow-hidden">
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[280px] bg-brand-600/20 blur-[120px] rounded-full pointer-events-none"></div>
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-900/60 border border-brand-400/30 text-xs font-medium text-brand-200 mb-6">
+                <i class="fa-solid fa-heart-pulse"></i> About PodVet
+            </div>
+            <h1 class="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">Built by vets, for the team behind the counter</h1>
+            <p class="max-w-2xl mx-auto text-base sm:text-lg text-brand-200 leading-relaxed">
+                PodVet is veterinary clinic management software that lets you focus on your patients while we run the clinic — appointments, records, billing, inventory and reports in one place.
+            </p>
+        </div>
+    </section>
+
+    <!-- MISSION / STORY -->
+    <section class="py-16 bg-white">
+<div class="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+            <div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold mb-4 text-brand-900">Our story</h2>
+                <div class="space-y-4 text-sm text-gray-600 leading-relaxed">
+                    <p>PodVet started with a simple frustration: veterinary teams were spending more time on paper files, booking books and spreadsheets than with their patients. Every visit meant rewriting the same notes into a dozen different places — and getting paid used to take days.</p>
+                    <p>So we built one platform that holds the whole clinic together. Medical records, vaccinations, appointments, online invoicing, inventory and reports live in a single place, with an AI assistant that drafts your SOAP notes and reminders so nothing falls through the cracks.</p>
+                    <p>Today PodVet powers small solo practices, busy multi-doctor clinics and animal hospitals — from the first free month to hundreds of thousands of patients on file.</p>
+                </div>
+            </div>
+            <div class="space-y-5">
+                <div class="relative rounded-3xl overflow-hidden shadow-lg">
+                    <img src="/img/about-dogs-running.jpg" alt="Happy dogs running together" class="w-full h-56 sm:h-64 object-cover">
+                    <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-brand-950/80 to-transparent p-5 text-white text-xs font-semibold">Healthier, calmer clinics — that's the whole point.</div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-brand-50 border border-brand-200 rounded-2xl p-6 text-center">
+                        <p class="text-3xl font-extrabold text-brand-800">2018</p>
+                        <p class="text-xs text-gray-500 mt-1">Founded to modernise the clinic back office</p>
+                    </div>
+                    <div class="bg-brand-50 border border-brand-200 rounded-2xl p-6 text-center">
+                        <p class="text-3xl font-extrabold text-brand-800">1M+</p>
+                        <p class="text-xs text-gray-500 mt-1">Patient records managed on PodVet</p>
+                    </div>
+                    <div class="bg-brand-50 border border-brand-200 rounded-2xl p-6 text-center">
+                        <p class="text-3xl font-extrabold text-brand-800">500+</p>
+                        <p class="text-xs text-gray-500 mt-1">Clinics and hospitals on the platform</p>
+                    </div>
+                    <div class="bg-brand-50 border border-brand-200 rounded-2xl p-6 text-center">
+                        <p class="text-3xl font-extrabold text-brand-800">35,000+</p>
+                        <p class="text-xs text-gray-500 mt-1">Invoices issued last year alone</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VALUES -->
+    <section class="py-16 bg-brand-surface">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-center mb-10 text-brand-900">What we stand for</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <div class="w-11 h-11 rounded-xl bg-brand-500/20 text-brand-800 flex items-center justify-center text-lg mb-4"><i class="fa-solid fa-paw"></i></div>
+                    <h3 class="font-bold mb-2">Patients first</h3>
+                    <p class="text-sm text-gray-600">Every feature exists so the animal gets better care in less time — the software stays out of the way.</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <div class="w-11 h-11 rounded-xl bg-brand-500/20 text-brand-800 flex items-center justify-center text-lg mb-4"><i class="fa-solid fa-shield-halved"></i></div>
+                    <h3 class="font-bold mb-2">Privacy by design</h3>
+                    <p class="text-sm text-gray-600">Your medical data is yours. We encrypt it, back it up, and never sell or share it.</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <div class="w-11 h-11 rounded-xl bg-brand-500/20 text-brand-800 flex items-center justify-center text-lg mb-4"><i class="fa-solid fa-lightbulb"></i></div>
+                    <h3 class="font-bold mb-2">AI that helps, not replaces</h3>
+                    <p class="text-sm text-gray-600">The AI drafts notes and flags risks, but the clinician always stays in control of the medicine.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TEAM -->
+    <section class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-4">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-center mb-3 text-brand-900">Meet the team</h2>
+            <p class="text-sm text-gray-500 text-center mb-12 max-w-xl mx-auto">Veterinarians, engineers and support people who've worked in and around clinics — so we build what actually helps.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 text-center shadow-sm hover:shadow-md transition">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-white flex items-center justify-center font-extrabold text-xl mx-auto mb-4">ED</div>
+                    <h3 class="font-bold text-sm">Dr. Emre Do&#287;an</h3>
+                    <p class="text-xs text-brand-700 font-semibold mt-0.5">Co-founder &amp; CEO</p>
+                    <p class="text-xs text-gray-500 mt-2 leading-relaxed">10 years in clinical practice before writing the first line of PodVet.</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 text-center shadow-sm hover:shadow-md transition">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-white flex items-center justify-center font-extrabold text-xl mx-auto mb-4">DK</div>
+                    <h3 class="font-bold text-sm">Dr. Demet Kaya</h3>
+                    <p class="text-xs text-brand-700 font-semibold mt-0.5">Co-founder &amp; Chief Product Officer</p>
+                    <p class="text-xs text-gray-500 mt-2 leading-relaxed">She spends each week shadowing a clinic to keep the roadmap honest.</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 text-center shadow-sm hover:shadow-md transition">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-white flex items-center justify-center font-extrabold text-xl mx-auto mb-4">YA</div>
+                    <h3 class="font-bold text-sm">Yusuf Ayd&#305;n</h3>
+                    <p class="text-xs text-brand-700 font-semibold mt-0.5">Head of Engineering</p>
+                    <p class="text-xs text-gray-500 mt-2 leading-relaxed">Keeps PodVet fast, encrypted and always online — including the AI notes.</p>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 text-center shadow-sm hover:shadow-md transition">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-white flex items-center justify-center font-extrabold text-xl mx-auto mb-4">MD</div>
+                    <h3 class="font-bold text-sm">Mehmet Demir</h3>
+                    <p class="text-xs text-brand-700 font-semibold mt-0.5">Onboarding &amp; Support Lead</p>
+                    <p class="text-xs text-gray-500 mt-2 leading-relaxed">Runs data migrations and answers questions — most days before lunch.</p>
+                </div>
+            </div>
+            <p class="text-center text-xs text-gray-400 mt-10">Backed by a growing team across &Idot;zmir and Karachi. We love keeping clinics calm.</p>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-16 bg-white">
+        <div class="max-w-4xl mx-auto px-4 rounded-3xl hero-photo py-14 text-center text-white">
+            <h2 class="text-2xl sm:text-3xl font-extrabold mb-3">Ready to run a calmer clinic?</h2>
+            <p class="text-brand-200 text-sm mb-8">Start your 1-month free trial — no card required.</p>
+            <a href="/signup" class="inline-block bg-brand-600 hover:bg-brand-500 text-white font-bold px-8 py-3.5 rounded-full shadow-xl transition hover:scale-105">Try for Free</a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-black text-white pt-14 pb-10 border-t border-gray-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 pb-10 border-b border-gray-800">
+                <div class="col-span-2 space-y-3">
+                    <img src="/brand/logo-reversed.png" alt="PodVet" class="h-9 w-auto object-contain">
+                    <p class="text-xs text-gray-400 leading-relaxed max-w-xs">Veterinary clinic management with AI-assisted SOAP notes, records, billing and reminders — in one platform.</p>
+                    <div class="flex items-center space-x-3 text-gray-400 text-sm pt-1">
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-x-twitter"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-facebook"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="#" class="hover:text-white transition"><i class="fa-brands fa-linkedin"></i></a>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Pages</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/blog" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="/faq" class="hover:text-white transition">Frequently Asked Questions</a></li>
+                        <li><a href="/docs" class="hover:text-white transition">Documentation</a></li>
+                        <li><a href="/help" class="hover:text-white transition">Help Center</a></li>
+                        <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Legal</h4>
+                    <ul class="space-y-2 text-xs text-gray-400">
+                        <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="/terms" class="hover:text-white transition">Terms of Use</a></li>
+                        <li><a href="/signup" class="hover:text-white transition">Start a free trial</a></li>
+                        <li><a href="/app" class="hover:text-white transition">Log in to PodVet</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-8 text-xs text-gray-500 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4">
+                <p>Copyright &copy; 2018&ndash;2026 PodVet. All rights reserved.</p>
+                <div class="flex space-x-4">
+                    <a href="/privacy" class="hover:underline">Privacy</a>
+                    <a href="/terms" class="hover:underline">Terms</a>
+                    <a href="/contact" class="hover:underline">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+<script>
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+    </script>
+
+</body>
+</html>

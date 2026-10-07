@@ -7,6 +7,13 @@ const os        = require("os");
 const { imageSize } = require("image-size");
 
 // ── Fallback brand defaults (used if no branding settings saved yet) ──────────
+// `trustedTagline` and `poweredBy` default to EMPTY, not to a vendor string.
+// They used to be the fixed "Most Trusted Veterinarian Clinic in London —
+// Parkar Technologies LLC (As Per Survey Of 2025)" and "Powered by Parkar
+// Technologies LLC.", which meant every clinic's invoice, expense report,
+// POS/lab slip and prescription carried one vendor's branding regardless of
+// which clinic generated it. Now each clinic sets its own, and a clinic that
+// sets neither gets neither line.
 const DEFAULTS = {
   color:       [139, 0, 0],    // #8B0000 deep red
   clinicName:  "My Clinic",
@@ -15,7 +22,8 @@ const DEFAULTS = {
   bankName:    "",
   bankAccount: "",
   logoPath:    null,
-  trustedTagline: "Most Trusted Veterinarian Clinic in London — Parkar Technologies LLC (As Per Survey Of 2025)",
+  trustedTagline: "",
+  poweredBy:      "",
   logoSizeCm:     3.5,      // printable logo size, 1.5–6 cm (clamped below); 3.5 cm = 3.5×3.5 cm
   currency:      "Rs",      // price currency symbol on the invoice/expense/POS PDFs
   price:          500,      // default consultation/invoice line price when none stored
@@ -239,18 +247,21 @@ function drawClinicHeader(doc, yStart, branding, printMode = false) {
 
   // "Title" line directly beneath the logo/name block (shared between the
   // invoice PDF and the prescription PDF so the brand message is consistent).
-  const trustedTagline =
-    String(branding.trustedTagline || DEFAULTS.trustedTagline);
-  const taglineLines = doc.splitTextToSize(`\u201C${trustedTagline}\u201D`, UW - LOGO_W - 6) || [trustedTagline];
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(6.5);
-  setRGB(doc, MID_GREY);
-  const taglineTop = branding.phone
-    ? (branding.address ? y + 20 : y + 15)
-    : (branding.address ? y + 15 : y + 10);
-  taglineLines.forEach((ln, i) => {
-    doc.text(ln, M + UW, taglineTop + i * 2.6, { align: "right" });
-  });
+  // Only drawn when the clinic has actually set one — an empty tagline would
+  // otherwise print a bare pair of quote marks under the masthead.
+  const trustedTagline = String(branding.trustedTagline || DEFAULTS.trustedTagline || "");
+  if (trustedTagline) {
+    const taglineLines = doc.splitTextToSize(`\u201C${trustedTagline}\u201D`, UW - LOGO_W - 6) || [trustedTagline];
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(6.5);
+    setRGB(doc, MID_GREY);
+    const taglineTop = branding.phone
+      ? (branding.address ? y + 20 : y + 15)
+      : (branding.address ? y + 15 : y + 10);
+    taglineLines.forEach((ln, i) => {
+      doc.text(ln, M + UW, taglineTop + i * 2.6, { align: "right" });
+    });
+  }
 
   y += LOGO_H + 2;
 
@@ -554,9 +565,12 @@ y += 4;
   doc.text("Thank you for trusting us with your pet's care!", M + UW / 2, y, { align: "center" });
   y += 4;
 
-  doc.setFontSize(7);
-  setRGB(doc, [170, 170, 170]);
-  doc.text("Powered by Parkar Technologies LLC.", M + UW / 2, y, { align: "center" });
+  // Vendor footer — the clinic's own "powered by" line, or nothing at all.
+  if (branding.poweredBy) {
+    doc.setFontSize(7);
+    setRGB(doc, [170, 170, 170]);
+    doc.text(branding.poweredBy, M + UW / 2, y, { align: "center" });
+  }
 
   const pdfBytes = doc.output("arraybuffer");
   fs.writeFileSync(outputPath, Buffer.from(pdfBytes));
@@ -705,9 +719,11 @@ function generateExpenseReportPDF(data, outputPath) {
     M + UW / 2, y, { align: "center" }
   );
   y += 4;
-  doc.setFontSize(7);
-  setRGB(doc, [170, 170, 170]);
-  doc.text("Powered by Parkar Technologies LLC.", M + UW / 2, y, { align: "center" });
+  if (branding.poweredBy) {
+    doc.setFontSize(7);
+    setRGB(doc, [170, 170, 170]);
+    doc.text(branding.poweredBy, M + UW / 2, y, { align: "center" });
+  }
 
   const pdfBytes = doc.output("arraybuffer");
   fs.writeFileSync(outputPath, Buffer.from(pdfBytes));
@@ -933,9 +949,11 @@ function generatePOSSlipPDF(data, outputPath) {
     align: "center", bold: true, color: RED_RGB,
   });
   y += 1;
-  singleLine("Powered by Parkar Technologies LLC.", {
-    align: "center", size: 6.5, color: RED_RGB,
-  });
+  if (branding.poweredBy) {
+    singleLine(branding.poweredBy, {
+      align: "center", size: 6.5, color: RED_RGB,
+    });
+  }
 
   const pdfBytes = doc.output("arraybuffer");
   fs.writeFileSync(outputPath, Buffer.from(pdfBytes));
@@ -1084,7 +1102,7 @@ async function printPOSSlip(data, printerName = "POS-80-Series") {
 
   <br/>
   <div class="footer-msg">Thank you for trusting us with your pet's care!</div>
-  <div class="footer-dev">Powered by Parkar Technologies LLC.</div>
+  ${branding.poweredBy ? `<div class="footer-dev">${String(branding.poweredBy).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>` : ""}
 
 </body>
 </html>`;
@@ -1204,7 +1222,7 @@ async function printLabSlip(data, printerName = "POS-80-Series") {
 
   ${data.ordered_by     ? `<div class="ordered-by">${escapeHtml(data.ordered_by)}</div>` : ""}
 
-  <div class="footer-dev">Powered by Parkar Technologies LLC.</div>
+  ${branding.poweredBy ? `<div class="footer-dev">${escapeHtml(branding.poweredBy)}</div>` : ""}
 
 </body>
 </html>`;

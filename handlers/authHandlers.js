@@ -30,6 +30,18 @@ function toLocalUser({ user, activeClinic }) {
     // returns it) instead of waiting for some other request to 402. See
     // LoginScreen.jsx's routeAfterAuth.
     access_blocked: activeClinic?.accessBlocked ?? null,
+    // The rest of the clinic's own branding, flattened onto the user object.
+    // The app shell reads the clinic's name/logo/colour off the synchronous
+    // getSession() result (there is no header to hang a clinic identity on, and
+    // the sidebar renders before any branding fetch can resolve), so carrying it
+    // here is what lets the whole app paint in the clinic's brand on first load
+    // instead of showing the platform's logo and name.
+    clinic_logo: activeClinic?.logoUrl ?? null,
+    clinic_color: activeClinic?.brandColor ?? null,
+    clinic_address: activeClinic?.address ?? null,
+    clinic_phone: activeClinic?.phone ?? null,
+    clinic_tagline: activeClinic?.tagline ?? null,
+    clinic_powered_by: activeClinic?.poweredBy ?? null,
   };
 }
 
@@ -66,7 +78,16 @@ module.exports = function setupAuthHandlers(store) {
         };
       }
 
-      return { success: true, message: 'Login successful', user: localUser };
+      // The browser keeps the tokens so it can prove who it is on every later
+      // call. They used to be fetched back out of the server with
+      // __get-tokens, which meant any anonymous visitor could read them off the
+      // wire and walk away with the clinic owner's session.
+      return {
+        success: true,
+        message: 'Login successful',
+        user: localUser,
+        tokens: { accessToken: data.accessToken, refreshToken: data.refreshToken },
+      };
     } catch (err) {
       return { success: false, message: err.message || 'Login failed', code: err.code };
     }
@@ -80,9 +101,13 @@ module.exports = function setupAuthHandlers(store) {
       saasClient.saveSession(session);
       const localUser = toLocalUser(session);
       store.set('user', localUser);
-      return { success: true, user: localUser };
+      return {
+        success: true,
+        user: localUser,
+        tokens: { accessToken: data.accessToken, refreshToken: data.refreshToken },
+      };
     } catch (err) {
-      return { success: false, message: err.message || 'Could not switch clinic', code: err.code };
+      return { success: false, message: err.message || 'Could not switch clinic' };
     }
   });
 
@@ -104,9 +129,22 @@ module.exports = function setupAuthHandlers(store) {
           role: 'OWNER',
           branchId: clinic.branchId || null,
           // A brand-new clinic has no subscription yet, but that's the
-          // normal pre-onboarding state, not a block — SignupScreen routes
+          // normal pre-onboarding state, not a block - SignupScreen routes
           // straight to /select-plan itself and never consults this field.
           accessBlocked: clinic.accessBlocked || null,
+          // The branding the user just chose at signup. POST /clinics writes
+          // it into the new clinic_settings row and echoes it back; carrying it
+          // onto the session here is what makes the very first screen after
+          // signup show the clinic's own name/logo/colour. Without it
+          // toLocalUser() produced clinic_logo/clinic_color = null, so
+          // clinic-branding.js fell back to the platform's PodVet branding and
+          // the new clinic only looked like itself after a manual reload.
+          logoUrl: clinic.logoUrl || null,
+          brandColor: clinic.brandColor || null,
+          address: clinic.address || null,
+          phone: clinic.phone || null,
+          tagline: clinic.tagline || null,
+          poweredBy: clinic.poweredBy || null,
         },
       };
       saasClient.saveSession(session);
@@ -116,6 +154,9 @@ module.exports = function setupAuthHandlers(store) {
         success: true,
         message: 'Clinic created successfully',
         user: localUser,
+        // Same reason as login: the browser needs the tokens itself now that
+        // __get-tokens is gone from the RPC surface.
+        tokens: { accessToken: data.accessToken, refreshToken: data.refreshToken },
         // Referral result from POST /api/clinics, so the signup screen can
         // confirm the discount that was actually stored.
         referralApplied: !!data.referralApplied,
@@ -247,3 +288,9 @@ module.exports = function setupAuthHandlers(store) {
     }
   });
 };
+
+// index.js needs this to rebuild the session user from a *verified* token
+// after redeploy, and the browser preload can no longer ask the server for the
+// tokens back (see the note on the /_rpc gate), so sign-in has to hand them
+// over directly.
+module.exports.toLocalUser = toLocalUser;
