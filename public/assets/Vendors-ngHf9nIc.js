@@ -9,7 +9,7 @@ r.useEffect(()=>{reload()},[vid]);
 const ensureProducts=()=>{const a=window.electronAPI;if(!a||!a.retrieveProducts||products.length)return;a.retrieveProducts({page:1,pageSize:500}).then(s=>setProducts(Array.isArray(s&&s.data)?s.data:[])).catch(()=>{})};
 const toggle=()=>setOpen(o=>{o||(ensureProducts(),setDate(et()));return !o});
 const setLine=(i,k,v)=>setLines(ls=>ls.map((x,j)=>j===i?{...x,[k]:v}:x));
-const pick=(i,raw)=>{const p=products.find(x=>String(x.id)===raw);setLines(ls=>ls.map((x,j)=>j===i?(p?{...x,productId:String(p.id),itemName:p.name||""}:{...x,productId:"",itemName:""}):x))};
+const pick=(i,raw)=>{const p=products.find(x=>String(x.id)===raw);setLines(ls=>ls.map((x,j)=>j===i?(p?{...x,productId:String(p.id),itemName:p.name||"",unitPrice:x.unitPrice?x.unitPrice:(p.price??"")}:{...x,productId:"",itemName:""}):x))};
 const total=lines.reduce((s,x)=>s+(Number(x.quantity)||0)*(Number(x.unitPrice)||0),0);
 const save=async()=>{const a=window.electronAPI;if(saving)return;if(!a||!a.addVendorPurchase){h.error("Not available here");return}
 const items=lines.filter(x=>String(x.itemName||"").trim()&&Number(x.quantity)>0).map(x=>({productId:x.productId?Number(x.productId):null,itemName:String(x.itemName).trim(),quantity:Number(x.quantity)||1,unitPrice:Number(x.unitPrice)||0}));
