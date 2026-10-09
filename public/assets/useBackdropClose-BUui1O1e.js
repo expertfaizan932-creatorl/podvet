@@ -112,12 +112,12 @@ import{b7 as M,r as t,u as $,j as e,F as x,b8 as D,b9 as z,c as W,ba as G,bb as 
                 h-8\r
                 w-auto\r
                 object-contain mr-2\r
-              `}),!n&&e.jsxs("div",{className:"flex items-center gap-2",children:[e.jsx("h1",{className:`\r
+              `}),!n&&e.jsxs("div",{className:"flex items-center gap-2",children:[e.jsxs("div",{className:"flex flex-col min-w-0",children:[e.jsx("h1",{className:`\r
                     text-xl\r
                     font-bold\r
                     text-gray-800\r
                     tracking-tight\r
-                  `,children:br&&br.name||"PodVet"}),e.jsx("span",{className:`\r
+                  `,children:br&&br.name||"PodVet"}),e.jsx("span",{className:"text-[10px] text-gray-400 font-medium leading-none mt-0.5 block",children:"v"+(window.__pvVersion||"")})]}),e.jsx("span",{className:`\r
                     text-[10px]\r
                     font-semibold\r
                     px-1.5\r

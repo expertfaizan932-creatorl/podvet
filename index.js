@@ -13,6 +13,10 @@ const os = require('os');
 const fs = require('fs');
 const express = require('express');
 
+const APP_VERSION = (() => {
+  try { return require('./package.json').version || '0.0.0'; } catch { return '0.0.0'; }
+})();
+
 const WEB_PORT = Number(process.env.WEB_PORT || process.env.PORT || 8080);
 const WEB_USER_DATA_DIR = path.resolve(
   process.env.WEB_USER_DATA_DIR ||
@@ -417,7 +421,7 @@ function buildWebIndexHtml() {
   // before the app bundle's first render reads it — that is what makes the very
   // first paint show the clinic's logo, name and colour instead of the
   // platform's.
-  const inject = '\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n  ';
+  const inject = '\n    <script>window.__pvVersion=' + JSON.stringify(APP_VERSION) + ';</script>\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n  ';
   return raw.replace('<head>', '<head>\n    ' + inject);
 }
 const webIndexHtml = buildWebIndexHtml();
@@ -448,6 +452,9 @@ app.get('/', (req, res) => {
 app.get('/app', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.type('text/html').send(webIndexHtml);
+});
+app.get('/api/version', (req, res) => {
+  res.type('application/json').send(JSON.stringify({ version: APP_VERSION }));
 });
 
 // The one login page is the clinic app's own login screen, available at /app.
