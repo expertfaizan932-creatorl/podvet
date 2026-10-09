@@ -1,3 +1,4 @@
 {
+  "5.0.12": "The desktop app now stays in sync with the website automatically and shares one central database. The running version is shown under the clinic name in the sidebar.",
   "5.0.11": "PodVet now updates itself: new versions download in the background and install when you restart the app."
 }

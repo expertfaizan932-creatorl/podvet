@@ -453,9 +453,6 @@ app.get('/app', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.type('text/html').send(webIndexHtml);
 });
-app.get('/api/version', (req, res) => {
-  res.type('application/json').send(JSON.stringify({ version: APP_VERSION }));
-});
 
 // The one login page is the clinic app's own login screen, available at /app.
 app.get('/login', (req, res) => res.redirect('/app'));
