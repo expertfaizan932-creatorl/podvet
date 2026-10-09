@@ -15,8 +15,9 @@ const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Where the live app lives. Overridable for local testing.
-const REMOTE_APP_URL = process.env.PODVET_REMOTE_URL || 'https://podvet.biztrack.uk/';
+// Where the live app lives. Overridable for local testing. The desktop opens
+// the application itself (login/app screens), not the marketing landing page.
+const REMOTE_APP_URL = process.env.PODVET_REMOTE_URL || 'https://podvet.biztrack.uk/app';
 
 const isDev = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 
