@@ -597,6 +597,15 @@ async function ensureFeatureSchema(conn) {
     ['city', 'VARCHAR(100)'],
     ['website', 'VARCHAR(255)'],
     ['category', 'VARCHAR(100)'],
+    // Manually-entered per-vendor settlement figures (Sales Period, Vendor
+    // Share, Clinic Profit, Settled, Remaining, Settlement Status). Null keeps
+    // the auto-computed consignment/settlement value as the fallback.
+    ['manual_sales', 'DECIMAL(12,2)'],
+    ['manual_vendor_share', 'DECIMAL(12,2)'],
+    ['manual_clinic_profit', 'DECIMAL(12,2)'],
+    ['manual_settled', 'DECIMAL(12,2)'],
+    ['manual_remaining', 'DECIMAL(12,2)'],
+    ['manual_settlement_status', 'VARCHAR(20)'],
   ];
   for (const [colName, colType] of vendorCols) {
     try {
@@ -2380,6 +2389,22 @@ app.get('/api/vendors', authMiddleware, async (req, res) => {
        ) sett ON sett.vendor_id = v.id
        WHERE ${where} ORDER BY v.id DESC LIMIT ? OFFSET ?`,
       [...params, sz, (pg - 1) * sz]);
+    // Products bought from each vendor + total purchase value, so the vendors
+    // table can show Product / Price columns without a per-row round trip.
+    const vids = rows.map((r) => r.id);
+    const pMap = {};
+    if (vids.length) {
+      const [pit] = await db.query(
+        `SELECT vp.vendor_id, vpi.item_name, vpi.line_total
+         FROM vendor_purchase_items vpi JOIN vendor_purchases vp ON vp.id = vpi.purchase_id
+         WHERE vp.vendor_id IN (${vids.map(() => '?').join(',')}) ORDER BY vpi.id`, vids);
+      for (const it of pit) {
+        const m = pMap[it.vendor_id] || (pMap[it.vendor_id] = { names: [], total: 0 });
+        if (it.item_name && !m.names.includes(it.item_name)) m.names.push(it.item_name);
+        m.total += Number(it.line_total || 0);
+      }
+    }
+    for (const r of rows) { const m = pMap[r.id]; r.products = m ? m.names : []; r.purchase_total = m ? +m.total.toFixed(2) : 0; }
     res.json(paginate(rows, count[0].cnt, pg, sz));
   } catch (e) { console.error('[vendors]', e.message); res.json(EMPTY); }
 });
@@ -2431,15 +2456,17 @@ app.get('/api/vendors/consignment-period-summary', authMiddleware, async (req, r
 app.post('/api/vendors', authMiddleware, async (req, res) => {
   try {
     const d = req.body;
-    const [r] = await db.query('INSERT INTO vendors (vendor_name,contact_person,contact_number,email,address,city,website,category,notes,is_active) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [d.vendorName || d.name || '', d.contactPerson || null, d.contactNumber || d.contact || null, d.email || null, d.address || null, d.city || null, d.website || null, d.category || null, d.notes || null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0)]);
+    const nz = (v) => (v === '' || v === undefined ? null : v);
+    const [r] = await db.query('INSERT INTO vendors (vendor_name,contact_person,contact_number,email,address,city,website,category,notes,is_active,manual_sales,manual_vendor_share,manual_clinic_profit,manual_settled,manual_remaining,manual_settlement_status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [d.vendorName || d.name || '', d.contactPerson || null, d.contactNumber || d.contact || null, d.email || null, d.address || null, d.city || null, d.website || null, d.category || null, d.notes || null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0), nz(d.manualSales), nz(d.manualVendorShare), nz(d.manualClinicProfit), nz(d.manualSettled), nz(d.manualRemaining), nz(d.manualSettlementStatus)]);
     res.json({ data: { id: r.insertId, ...d } });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/vendors/:id', authMiddleware, async (req, res) => {
   try { const d = req.body;
-    await db.query('UPDATE vendors SET vendor_name=?,contact_person=?,contact_number=?,email=?,address=?,city=?,website=?,category=?,notes=?,is_active=? WHERE id=?',
-      [d.vendorName || d.name || '', d.contactPerson ?? null, d.contactNumber ?? null, d.email ?? null, d.address ?? null, d.city ?? null, d.website ?? null, d.category ?? null, d.notes ?? null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0), req.params.id]);
+    const nz = (v) => (v === '' || v === undefined ? null : v);
+    await db.query('UPDATE vendors SET vendor_name=?,contact_person=?,contact_number=?,email=?,address=?,city=?,website=?,category=?,notes=?,is_active=?,manual_sales=?,manual_vendor_share=?,manual_clinic_profit=?,manual_settled=?,manual_remaining=?,manual_settlement_status=? WHERE id=?',
+      [d.vendorName || d.name || '', d.contactPerson ?? null, d.contactNumber ?? null, d.email ?? null, d.address ?? null, d.city ?? null, d.website ?? null, d.category ?? null, d.notes ?? null, d.isActive === undefined ? 1 : (d.isActive ? 1 : 0), nz(d.manualSales), nz(d.manualVendorShare), nz(d.manualClinicProfit), nz(d.manualSettled), nz(d.manualRemaining), nz(d.manualSettlementStatus), req.params.id]);
     res.json({ success: true }); } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.delete('/api/vendors/:id', authMiddleware, async (req, res) => {

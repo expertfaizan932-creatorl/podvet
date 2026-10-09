@@ -31,6 +31,15 @@ module.exports = function setupVendorsHandlers() {
         settlements_count: v.settlementsCount,
         units_sold: v.unitsSoldLifetime,
         total_sales: v.grossSalesLifetime,
+        category: v.category,
+        products: Array.isArray(v.products) ? v.products : [],
+        purchase_total: v.purchaseTotal,
+        manual_sales: v.manualSales,
+        manual_vendor_share: v.manualVendorShare,
+        manual_clinic_profit: v.manualClinicProfit,
+        manual_settled: v.manualSettled,
+        manual_remaining: v.manualRemaining,
+        manual_settlement_status: v.manualSettlementStatus,
       }));
       return { success: true, data };
     } catch (err) {
@@ -47,6 +56,15 @@ module.exports = function setupVendorsHandlers() {
         recorded_settlements_vendor_share: v.settledVendorShare,
         units_sold: v.unitsSoldLifetime,
         total_sales: v.grossSalesLifetime,
+        category: v.category,
+        products: Array.isArray(v.products) ? v.products : [],
+        purchase_total: v.purchaseTotal,
+        manual_sales: v.manualSales,
+        manual_vendor_share: v.manualVendorShare,
+        manual_clinic_profit: v.manualClinicProfit,
+        manual_settled: v.manualSettled,
+        manual_remaining: v.manualRemaining,
+        manual_settlement_status: v.manualSettlementStatus,
       }));
       return { success: true, data, total: result.total, totalPages: result.totalPages, page: result.page };
     } catch (err) {
@@ -93,6 +111,12 @@ module.exports = function setupVendorsHandlers() {
         category: vendor.category || undefined,
         notes: vendor.notes || undefined,
         isActive: !!vendor.is_active,
+        manualSales: vendor.manual_sales,
+        manualVendorShare: vendor.manual_vendor_share,
+        manualClinicProfit: vendor.manual_clinic_profit,
+        manualSettled: vendor.manual_settled,
+        manualRemaining: vendor.manual_remaining,
+        manualSettlementStatus: vendor.manual_settlement_status,
       });
       return { success: true, message: "Vendor added successfully", vendorId: result.data.id };
     } catch (err) {
@@ -114,6 +138,12 @@ module.exports = function setupVendorsHandlers() {
         category: vendor.category || undefined,
         notes: vendor.notes || undefined,
         isActive: !!vendor.is_active,
+        manualSales: vendor.manual_sales,
+        manualVendorShare: vendor.manual_vendor_share,
+        manualClinicProfit: vendor.manual_clinic_profit,
+        manualSettled: vendor.manual_settled,
+        manualRemaining: vendor.manual_remaining,
+        manualSettlementStatus: vendor.manual_settlement_status,
       });
       return { success: true, message: "Vendor updated successfully" };
     } catch (err) {

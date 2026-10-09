@@ -169,6 +169,12 @@ CREATE TABLE IF NOT EXISTS vendors (
     category VARCHAR(100),
     notes TEXT,
     is_active TINYINT(1) DEFAULT 1,
+    manual_sales DECIMAL(12,2) DEFAULT NULL,
+    manual_vendor_share DECIMAL(12,2) DEFAULT NULL,
+    manual_clinic_profit DECIMAL(12,2) DEFAULT NULL,
+    manual_settled DECIMAL(12,2) DEFAULT NULL,
+    manual_remaining DECIMAL(12,2) DEFAULT NULL,
+    manual_settlement_status VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
