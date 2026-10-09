@@ -267,7 +267,7 @@
 
             <!-- Feature Pills Selector -->
             <div class="flex flex-wrap items-center justify-center gap-3 max-w-4xl mx-auto mb-8">
-                <button onclick="switchTab('records')" id="tab-records" class="hero-tab-btn active px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold bg-brand-800/90 text-white border border-brand-400/50 shadow-md transition-all flex items-center gap-2">
+                <button onclick="switchTab('records')" id="tab-records" class="hero-tab-btn px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium bg-brand-950/60 text-brand-200 hover:text-white border border-brand-800/60 hover:border-brand-500 transition-all flex items-center gap-2">
                     <i class="fa-solid fa-notes-medical"></i> Medical Records
                 </button>
                 <button onclick="switchTab('calendar')" id="tab-calendar" class="hero-tab-btn px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium bg-brand-950/60 text-brand-200 hover:text-white border border-brand-800/60 hover:border-brand-500 transition-all flex items-center gap-2">
@@ -283,135 +283,22 @@
         </div>
 
         <!-- DASHBOARD PREVIEW WRAPPER -->
+
         <div class="max-w-6xl mx-auto px-4 relative z-20">
             <div class="rounded-2xl border border-brand-500/30 bg-white/10 p-2 sm:p-3 shadow-2xl backdrop-blur-xl">
-                <p id="hero-caption" class="text-center text-[11px] sm:text-xs font-medium text-brand-300 pb-2 pt-1 tracking-wide">Medical Records â€” SOAP exam notes, prescriptions and patient history</p>
-                
-                <!-- Main Dashboard Frame (live PodVet interface) -->
+                <p id="hero-caption" class="text-center text-[11px] sm:text-xs font-medium text-brand-300 pb-2 pt-1 tracking-wide">Overview - today's visits, revenue and daily income at a glance</p>
+
+                <!-- Main Dashboard Frame (real PodVet software screenshot) -->
                 <div id="dashboard-mockup" class="bg-white rounded-xl shadow-xl overflow-hidden text-gray-800 text-left border border-gray-100">
-                    <div id="hero-screenshot-link" class="group block relative">
-                        <span class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-brand-900/90 text-white text-[11px] sm:text-xs font-semibold px-3 sm:px-4 py-2 rounded-full inline-flex items-center gap-2 shadow-lg opacity-90 pointer-events-none">
-                            <i class="fa-solid fa-hand-pointer text-brand-300"></i> Live demo â€” click a menu option to explore
+                    <a id="hero-screenshot-link" href="/app" title="Open the live PodVet app" aria-label="PodVet clinic management software - click to open the live app" class="group block relative">
+                        <img id="hero-screenshot" src="/landing/dashboard.png" alt="PodVet clinic management software dashboard" class="w-full h-auto block">
+                        <span class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-brand-900/90 text-white text-[11px] sm:text-xs font-semibold px-3 sm:px-4 py-2 rounded-full inline-flex items-center gap-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <i class="fa-solid fa-hand-pointer text-brand-300"></i> Live demo - click to open PodVet
                         </span>
-                    <div class="flex flex-col">
-                    <!-- Top App Header -->
-                    <div class="bg-brand-900 text-white px-4 py-3 flex items-center justify-between border-b border-brand-800">
-                        <div class="flex items-center space-x-3">
-                            <span class="font-bold text-sm flex items-center gap-1.5"><img src="/brand/icon-reversed.png" alt="PodVet" class="w-8 h-8 rounded-xl object-cover shadow-md"> podvet</span>
-                            <span class="bg-brand-800/80 px-2 py-0.5 rounded text-[11px] text-brand-200"><i class="fa-solid fa-plus mr-1"></i> New</span>
-                            <div class="relative hidden sm:block">
-                                <input type="text" placeholder="Search patient, client, or record" class="bg-brand-950/80 text-xs px-3 py-1 rounded-md text-brand-100 border border-brand-700/50 w-56 focus:outline-none">
-                                <i class="fa-solid fa-magnifying-glass absolute right-2.5 top-1.5 text-brand-400 text-xs"></i>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-3 text-xs text-brand-200">
-                            <span><i class="fa-solid fa-hospital mr-1"></i> Main Clinic</span>
-                            <div class="w-7 h-7 rounded-full bg-brand-700 flex items-center justify-center font-bold text-white text-xs">
-                                DR
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Inner App Grid -->
-                    <div class="grid grid-cols-12 min-h-[420px] bg-slate-50">
-                        
-                        <!-- Sidebar -->
-                        <div id="demo-sidebar" class="col-span-3 sm:col-span-2 bg-white border-r border-gray-200 p-2 text-xs space-y-1">
-                            <div class="px-2 py-1.5 text-gray-500 font-semibold text-[10px] uppercase">Menu</div>
-                            <a href="#" onclick="setScreen('overview'); return false;" data-screen="overview" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-chart-pie w-4 text-brand-600"></i> <span class="hidden sm:inline">Overview</span></a>
-                            <a href="#" onclick="setScreen('flowboard'); return false;" data-screen="flowboard" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-list-check w-4 text-brand-600"></i> <span class="hidden sm:inline">Flowboard</span></a>
-                            <a href="#" onclick="setScreen('appointments'); return false;" data-screen="appointments" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-calendar-days w-4 text-brand-600"></i> <span class="hidden sm:inline">Appointments</span></a>
-                            <a href="#" onclick="setScreen('records'); return false;" data-screen="records" class="flex items-center gap-2 px-2.5 py-1.5 bg-brand-100 text-brand-800 font-semibold rounded-lg"><i class="fa-solid fa-notes-medical w-4 text-brand-700"></i> <span class="hidden sm:inline">Medical Records</span></a>
-                            <a href="#" onclick="setScreen('invoices'); return false;" data-screen="invoices" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-file-invoice-dollar w-4 text-brand-600"></i> <span class="hidden sm:inline">Invoices</span></a>
-                            <a href="#" onclick="setScreen('products'); return false;" data-screen="products" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-boxes-packing w-4 text-brand-600"></i> <span class="hidden sm:inline">Products</span></a>
-                            <a href="#" onclick="setScreen('reports'); return false;" data-screen="reports" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-600 hover:bg-brand-50"><i class="fa-solid fa-chart-line w-4 text-brand-600"></i> <span class="hidden sm:inline">Reports</span></a>
-                        </div>
-
-                        <!-- Main Record Display Content -->
-                        <div id="tab-content-container" class="col-span-9 sm:col-span-10 p-4 sm:p-6 overflow-y-auto max-h-[500px]">
-                            
-                            <!-- Dynamic Content Inserted by JS -->
-                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-gray-200 mb-4 gap-2">
-                                <div>
-                                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                        Exam Notes & Treatments 
-                                        <span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-medium">In Progress</span>
-                                    </h3>
-                                    <p class="text-xs text-gray-500">Patient: <strong class="text-gray-700">Leo (Golden Retriever)</strong> | Client: <span class="text-gray-700">Adam Jansone</span></p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button class="bg-brand-600 text-white text-xs px-3 py-1.5 rounded-md font-medium hover:bg-brand-700 transition flex items-center gap-1">
-                                        <i class="fa-solid fa-paper-plane"></i> Send to Client
-                                    </button>
-                                    <button class="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-gray-200">
-                                        SOAP Templates
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Record Card -->
-                            <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm space-y-4">
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg text-xs">
-                                    <div>
-                                        <span class="text-gray-400 block text-[10px]">Date</span>
-                                        <span class="font-semibold text-gray-800">June 20, 2026 13:30</span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-400 block text-[10px]">Reasons</span>
-                                        <span class="inline-flex gap-1">
-                                            <span class="bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded text-[10px] font-medium">Loss of appetite</span>
-                                            <span class="bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded text-[10px] font-medium">Lethargy</span>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-400 block text-[10px]">Veterinarian</span>
-                                        <span class="font-semibold text-gray-800">Dr. Eli Vile</span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-400 block text-[10px]">Staff</span>
-                                        <span class="font-semibold text-gray-800">Gurkan Uzunca</span>
-                                    </div>
-                                </div>
-
-                                <div class="space-y-3 text-xs">
-                                    <div>
-                                        <h4 class="font-bold text-brand-900 mb-1 flex items-center gap-1">
-                                            <i class="fa-solid fa-stethoscope text-brand-600"></i> Chief Complaint
-                                        </h4>
-                                        <p class="text-gray-600">Patient reported loss of appetite and lethargy for about 2 days, with mild vomiting since last night.</p>
-                                    </div>
-
-                                    <div>
-                                        <h4 class="font-bold text-brand-900 mb-1">Clinical Findings</h4>
-                                        <p class="text-gray-600">Mucous membrane color is normal, capillary refill time is 2 sec. Mild dehydration signs present.</p>
-                                        <div class="flex gap-2 mt-1">
-                                            <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-check text-emerald-500 mr-1"></i> Vital Signs Checked</span>
-                                            <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-check text-emerald-500 mr-1"></i> Physical Exam Done</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <h4 class="font-bold text-brand-900 mb-1">Assessment & Diagnosis</h4>
-                                        <p class="text-gray-600">Moderate tenderness and pain response observed during abdominal palpation. Suspected acute gastroenteritis.</p>
-                                    </div>
-
-                                    <div class="p-3 bg-brand-50/60 rounded-lg border border-brand-100">
-                                        <h4 class="font-bold text-brand-900 mb-1">Treatment Plan & Prescriptions</h4>
-                                        <ul class="list-disc list-inside text-gray-700 space-y-0.5">
-                                            <li>Do not give dry or wet food for 24 hours. Start with small amounts of water.</li>
-                                            <li>Administer Maropitant 10mg/ml injection S.C.</li>
-                                            <li>Prescribe gastrointestinal diet food for 5 days.</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
     </section>
 
     <!-- TRUST STATS & RATING SECTION -->
@@ -557,7 +444,7 @@
                 <!-- Visual Right: Vet Doctor with AI overlay -->
                 <div class="lg:col-span-6 relative">
                     <div class="bg-white rounded-3xl p-4 shadow-xl border border-brand-100 relative overflow-hidden">
-                        <img src="https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=800&q=80" alt="Veterinarian with golden retriever" class="w-full h-80 object-cover rounded-2xl">
+                        <img src="/landing/records.png" alt="PodVet medical records and AI SOAP notes screen" class="w-full h-80 object-cover object-top rounded-2xl">
                         
                         <!-- Floating Glass AI Card -->
                         <div class="absolute top-8 right-8 glass-card p-4 rounded-2xl shadow-xl max-w-xs border border-brand-200">
@@ -1260,216 +1147,24 @@
             toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
         }
 
-        // Demo screen content (compact, real-style HTML for each PodVet screen)
-        const SCREEN_CONTENT = {
-            overview: `
-                <div class="pb-4 border-b border-gray-200 mb-4 flex items-center justify-between gap-2">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-900">Overview</h3>
-                        <p class="text-xs text-gray-500">Tuesday, Jun 20 2026 | Main Clinic</p>
-                    </div>
-                    <span class="bg-emerald-100 text-emerald-800 text-xs px-3 py-1 rounded-full font-medium"><i class="fa-solid fa-circle-check mr-1"></i> Clinic on track</span>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-xs">
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <span class="text-gray-400 block text-[10px]">Today's visits</span>
-                        <span class="text-2xl font-extrabold text-brand-900">14</span>
-                        <span class="text-emerald-600 block text-[10px]">+2 vs yesterday</span>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <span class="text-gray-400 block text-[10px]">Revenue today</span>
-                        <span class="text-2xl font-extrabold text-brand-900">Rs 42,500</span>
-                        <span class="text-emerald-600 block text-[10px]">+12%</span>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <span class="text-gray-400 block text-[10px]">Appointments</span>
-                        <span class="text-2xl font-extrabold text-brand-900">9</span>
-                        <span class="text-emerald-600 block text-[10px]">3 pending</span>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <span class="text-gray-400 block text-[10px]">Low stock items</span>
-                        <span class="text-2xl font-extrabold text-amber-600">5</span>
-                        <span class="text-amber-600 block text-[10px]">Reorder soon</span>
-                    </div>
-                </div>
-                <div class="grid grid-cols-5 sm:grid-cols-10 gap-1.5 items-end h-24">
-                    <div class="bg-brand-200 rounded-t" style="height:35%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:50%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:40%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:65%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:45%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:70%"></div>
-                    <div class="bg-brand-300 rounded-t" style="height:60%"></div>
-                    <div class="bg-brand-200 rounded-t" style="height:80%"></div>
-                    <div class="bg-brand-400 rounded-t" style="height:72%"></div>
-                    <div class="bg-brand-300 rounded-t" style="height:95%"></div>
-                </div>
-                <p class="text-[10px] text-gray-400 mt-1.5">Daily income â€” last 10 days</p>`,
-            flowboard: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Flowboard</h3>
-                    <p class="text-xs text-gray-500">Treatment pipeline across all vets</p>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <div class="font-bold text-gray-700 mb-2 flex items-center justify-between">Waiting <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">3</span></div>
-                        <div class="space-y-2">
-                            <div class="border border-gray-100 rounded-lg p-2 bg-slate-50"><span class="font-semibold text-gray-800">Leo</span> <span class="text-gray-400">Golden Retriever</span><div class="text-[10px] text-gray-500 mt-0.5">Registered 09:40</div></div>
-                            <div class="border border-gray-100 rounded-lg p-2 bg-slate-50"><span class="font-semibold text-gray-800">Mia</span> <span class="text-gray-400">Siamese</span><div class="text-[10px] text-gray-500 mt-0.5">Registered 10:05</div></div>
-                        </div>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <div class="font-bold text-gray-700 mb-2 flex items-center justify-between">In treatment <span class="bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">2</span></div>
-                        <div class="space-y-2">
-                            <div class="border border-brand-200 rounded-lg p-2 bg-brand-50/40"><span class="font-semibold text-gray-800">Rocky</span> <span class="text-gray-400">Labrador</span><div class="text-[10px] text-brand-700 mt-0.5">Dr. Eli Vile</div></div>
-                        </div>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-                        <div class="font-bold text-gray-700 mb-2 flex items-center justify-between">Completed <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">8</span></div>
-                        <div class="space-y-2">
-                            <div class="border border-emerald-200 rounded-lg p-2 bg-emerald-50/50"><span class="font-semibold text-gray-800">Bella</span> <span class="text-gray-400">Poodle</span><div class="text-[10px] text-emerald-700 mt-0.5">Vaccinated 09:15</div></div>
-                        </div>
-                    </div>
-                </div>`,
-            appointments: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Vaccine & Appointment Calendar</h3>
-                    <p class="text-xs text-gray-500">Per-vet calendar, bookings and due vaccinations</p>
-                </div>
-                <div class="grid grid-cols-7 gap-1.5 mb-4 text-center text-[10px]">
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Mon</div>
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Tue</div>
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Wed</div>
-                    <div class="bg-brand-600 rounded py-1.5 font-semibold text-white shadow">Thu</div>
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Fri</div>
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Sat</div>
-                    <div class="bg-slate-100 rounded py-1.5 font-semibold text-gray-500">Sun</div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">15</div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">16</div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">17</div>
-                    <div class="border border-brand-300 rounded-lg py-3 bg-brand-50 text-center font-bold text-brand-800 shadow-sm">18 <div class="text-[9px] font-medium text-brand-600">5 book</div></div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">19</div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">20</div>
-                    <div class="border border-gray-200 rounded-lg py-3 bg-white text-center text-gray-500">21</div>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100 text-xs">
-                    <div class="flex items-center justify-between px-3 py-2"><div><span class="font-semibold text-gray-800">Rabies booster â€” Leo (Golden Retriever)</span></div><div class="flex items-center gap-2"><span class="text-gray-400">11:00</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Confirmed</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2"><div><span class="font-semibold text-gray-800">Check-up â€” Mia (Siamese)</span></div><div class="flex items-center gap-2"><span class="text-gray-400">12:30</span><span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full">Pending</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2"><div><span class="font-semibold text-gray-800">Deworming â€” Bella (Poodle)</span></div><div class="flex items-center gap-2"><span class="text-gray-400">15:00</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Confirmed</span></div></div>
-                </div>`,
-            invoices: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Invoices & Payments</h3>
-                    <p class="text-xs text-gray-500">E-invoice, e-receipt and POS checkout</p>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100 text-xs mb-4">
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">INV-1042</span> <span class="text-gray-400 ml-1">Leo (Golden Retriever)</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">Rs 4,200</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Paid</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">INV-1041</span> <span class="text-gray-400 ml-1">Mia (Siamese)</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">Rs 2,950</span><span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full">Unpaid</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">INV-1040</span> <span class="text-gray-400 ml-1">Bella (Poodle)</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">Rs 1,150</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Paid</span></div></div>
-                </div>
-                <div class="bg-brand-50 border border-brand-100 rounded-xl p-3 text-xs flex items-center justify-between">
-                    <span class="font-semibold text-brand-900">Today's collected</span>
-                    <span class="font-extrabold text-brand-900 text-base">Rs 8,300</span>
-                </div>`,
-            products: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Products & Inventory</h3>
-                    <p class="text-xs text-gray-500">Stock levels and profit per product</p>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100 text-xs">
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">Maropitant 10mg/ml</span> <span class="text-gray-400 block text-[10px]">Medicine</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">24 left</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">In stock</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">Gastro diet food 2kg</span> <span class="text-gray-400 block text-[10px]">Food</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">6 left</span><span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full">Low stock</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">Rabies vaccine</span> <span class="text-gray-400 block text-[10px]">Vaccine</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">41 left</span><span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">In stock</span></div></div>
-                    <div class="flex items-center justify-between px-3 py-2.5"><div><span class="font-semibold text-gray-800">Dewormer tablets</span> <span class="text-gray-400 block text-[10px]">Medicine</span></div><div class="flex items-center gap-3"><span class="font-bold text-gray-900">3 left</span><span class="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full">Reorder</span></div></div>
-                </div>`,
-            reports: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Reports & Analytics</h3>
-                    <p class="text-xs text-gray-500">Income, expense & profit analysis</p>
-                </div>
-                <div class="grid grid-cols-3 gap-3 mb-4 text-xs">
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm"><span class="text-gray-400 block text-[10px]">Income (Mo)</span><span class="text-lg font-extrabold text-emerald-600">Rs 1.2L</span></div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm"><span class="text-gray-400 block text-[10px]">Expense (Mo)</span><span class="text-lg font-extrabold text-red-500">Rs 58K</span></div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm"><span class="text-gray-400 block text-[10px]">Profit (Mo)</span><span class="text-lg font-extrabold text-brand-900">Rs 62K</span></div>
-                </div>
-                <div class="flex items-end gap-1.5 h-28">
-                    <div class="flex-1 bg-emerald-200 rounded-t" style="height:40%"></div>
-                    <div class="flex-1 bg-emerald-200 rounded-t" style="height:55%"></div>
-                    <div class="flex-1 bg-emerald-200 rounded-t" style="height:48%"></div>
-                    <div class="flex-1 bg-emerald-300 rounded-t" style="height:70%"></div>
-                    <div class="flex-1 bg-emerald-200 rounded-t" style="height:60%"></div>
-                    <div class="flex-1 bg-emerald-300 rounded-t" style="height:78%"></div>
-                    <div class="flex-1 bg-brand-300 rounded-t" style="height:52%"></div>
-                    <div class="flex-1 bg-brand-300 rounded-t" style="height:66%"></div>
-                </div>
-                <p class="text-[10px] text-gray-400 mt-1.5">Income this month vs expenses (last 8 weeks)</p>`,
-            reminders: `
-                <div class="pb-4 border-b border-gray-200 mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Automated Reminders</h3>
-                    <p class="text-xs text-gray-500">SMS, WhatsApp, email and mobile push â€” sent automatically</p>
-                </div>
-                <div class="space-y-2 text-xs">
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                        <i class="fa-brands fa-whatsapp text-emerald-600 text-lg"></i>
-                        <div class="flex-1"><div class="font-semibold text-gray-800">Rabies booster due â€” Leo</div><div class="text-[10px] text-gray-500">Sent to Adam Jansone +92 300 0000000</div></div>
-                        <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full">Delivered</span>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                        <i class="fa-solid fa-comment-sms text-brand-600 text-lg"></i>
-                        <div class="flex-1"><div class="font-semibold text-gray-800">Check-up reminder â€” Bella</div><div class="text-[10px] text-gray-500">SMS queued for tomorrow 09:00</div></div>
-                        <span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full">Scheduled</span>
-                    </div>
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm flex items-center gap-3">
-                        <i class="fa-solid fa-envelope text-blue-600 text-lg"></i>
-                        <div class="flex-1"><div class="font-semibold text-gray-800">Invoice INV-1041 unpaid</div><div class="text-[10px] text-gray-500">Auto email sent 2 days ago</div></div>
-                        <span class="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full">Open</span>
-                    </div>
-                </div>`,
+        // Real PodVet screen captures shown in the hero frame
+        const SCREEN_IMAGES = {
+            dashboard: { src: '/landing/dashboard.png', alt: 'PodVet clinic management software dashboard', caption: 'Overview - today\'s visits, revenue and daily income at a glance' },
+            records: { src: '/landing/records.png', alt: 'PodVet medical records screen', caption: 'Medical Records - SOAP exam notes, prescriptions and patient history' },
+            appointments: { src: '/landing/appointments.png', alt: 'PodVet vaccine and appointment calendar', caption: 'Vaccines & Appointments - per-vet calendar, bookings and due vaccinations' },
+            invoices: { src: '/landing/payments.png', alt: 'PodVet invoices and payments screen', caption: 'Invoices & Payments - e-invoice, e-receipt and POS checkout' },
+            reminders: { src: '/landing/dashboard.png', alt: 'PodVet automated reminders', caption: 'Reminders - automated SMS, WhatsApp, email and push notifications' },
         };
 
-        const SCREEN_CAPTIONS = {
-            overview: 'Overview â€” today\'s visits, revenue and daily income at a glance',
-            flowboard: 'Flowboard â€” treatment pipeline across every vet in the clinic',
-            appointments: 'Vaccines & Appointments â€” per-vet calendar, bookings and due vaccinations',
-            records: 'Medical Records â€” SOAP exam notes, prescriptions and patient history',
-            invoices: 'Invoices & Payments â€” e-invoice, e-receipt and POS checkout',
-            products: 'Products & Inventory â€” stock levels and profit per product',
-            reports: 'Reports â€” income, expense & profit analytics',
-            reminders: 'Reminders â€” automated SMS, WhatsApp, email and push notifications',
-        };
-
-        const BREADCRUMB = {
-            overview: 'Overview', flowboard: 'Flowboard', appointments: 'Appointments',
-            records: 'Medical Records', invoices: 'Invoices', products: 'Products', reports: 'Reports',
-        };
-
-        // Map hero pills (records/calendar/invoices/reminders) onto screen keys
         const PILL_TO_SCREEN = {
             records: 'records', calendar: 'appointments', invoices: 'invoices', reminders: 'reminders',
         };
 
-        let savedRecordsHTML = null;
-
         function setScreen(key) {
-            const container = document.getElementById('tab-content-container');
-            if (!container) return;
+            const screen = SCREEN_IMAGES[key];
+            const img = document.getElementById('hero-screenshot');
+            if (img && screen) { img.src = screen.src; img.alt = screen.alt; }
 
-            // Restore the rich Medical Records markup the first time we return to it
-            if (key === 'records' && savedRecordsHTML !== null) {
-                container.innerHTML = savedRecordsHTML;
-            } else {
-                container.innerHTML = SCREEN_CONTENT[key] || SCREEN_CONTENT.overview;
-            }
-
-            // Sidebar active state
-            document.querySelectorAll('#demo-sidebar a').forEach(a => {
-                const active = a.getAttribute('data-screen') === key;
-                a.className = 'flex items-center gap-2 px-2.5 py-1.5 rounded-lg' + (active
-                    ? ' bg-brand-100 text-brand-800 font-semibold'
-                    : ' text-gray-600 hover:bg-brand-50');
-            });
-
-            // Hero pill active state
             document.querySelectorAll('.hero-tab-btn').forEach(btn => {
                 const pillKey = PILL_TO_SCREEN[btn.id.slice(4)] || '';
                 const active = pillKey === key;
@@ -1478,16 +1173,11 @@
                     : ' font-medium bg-brand-950/60 text-brand-200 hover:text-white border border-brand-800/60 hover:border-brand-500');
             });
 
-            // Caption
             const caption = document.getElementById('hero-caption');
-            if (caption && SCREEN_CAPTIONS[key]) caption.textContent = SCREEN_CAPTIONS[key];
-            showDemo(BREADCRUMB[key] || 'PodVet — demo screen');
+            if (caption && screen) caption.textContent = screen.caption;
+            showDemo((screen && screen.alt) || 'PodVet');
         }
 
-        // Preserve the rich Medical Records markup loaded initially
-        savedRecordsHTML = document.getElementById('tab-content-container').innerHTML;
-
-        // Hero tab pills
         function switchTab(tabKey) {
             setScreen(PILL_TO_SCREEN[tabKey] || tabKey);
         }
