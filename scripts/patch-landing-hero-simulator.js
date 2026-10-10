@@ -61,7 +61,7 @@ const demoJs = fs.readFileSync(path.join(__dirname, 'landing-hero-demo.js'), 'ut
 const NEW_JS = '\n' + demoJs.replace(/\s+$/, '') + '\n\n        ';
 
 html = replaceBetween(html, '<!-- DASHBOARD PREVIEW WRAPPER -->', '<!-- TRUST STATS & RATING SECTION -->', NEW_HERO, 'hero');
-html = replaceBetween(html, '// Real PodVet screen captures shown in the hero frame', '// Channel Selector Toggle', NEW_JS, 'hero-js');
+html = replaceBetween(html, '// ===== PodVet demo simulator: real screenshots + real sidebar (auto-managed block) =====', '// Channel Selector Toggle', NEW_JS, 'hero-js');
 
 if (html.includes('SCREEN_IMAGES') || html.includes('hero-screenshot') || html.includes('id="hero-screenshot-link"')) throw new Error('leftover screenshot code remains');
 if (!html.includes('id="demo-sidebar"') || !html.includes('const DEMO_NAV')) throw new Error('simulator not injected');
