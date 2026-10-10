@@ -716,3 +716,44 @@ SET @ddl := IF(
      'DO 0',
      'ALTER TABLE services ADD UNIQUE KEY uq_services_name_category (name, category)'));
 PREPARE s FROM @ddl; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- ─── Notification centre + customer portal accounts ─────────────────────────
+-- Mirrors server.js::ensureFeatureSchema (which repairs already-created clinic
+-- databases that predate the feature). Imported on every deploy, so both
+-- statements are CREATE TABLE IF NOT EXISTS (idempotent).
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  recipient_audience ENUM('STAFF','CLIENT') NOT NULL DEFAULT 'STAFF',
+  recipient_user_id INT DEFAULT NULL,
+  recipient_client_id INT DEFAULT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT,
+  category VARCHAR(50) NOT NULL DEFAULT 'general',
+  priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  related_entity_type VARCHAR(50) DEFAULT NULL,
+  related_entity_id INT DEFAULT NULL,
+  action_url VARCHAR(500) DEFAULT NULL,
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  read_at DATETIME DEFAULT NULL,
+  event_key VARCHAR(191) DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notifications_audience (recipient_audience, is_read),
+  KEY idx_notifications_client (recipient_client_id, is_read),
+  KEY idx_notifications_created (created_at),
+  UNIQUE KEY uq_notifications_event (event_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS client_accounts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  client_id INT NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  notification_prefs TEXT DEFAULT NULL,
+  last_login_at DATETIME DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_client_accounts_email (email),
+  KEY idx_client_accounts_client (client_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

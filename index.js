@@ -409,6 +409,10 @@ const themePickerSource = fs.readFileSync(path.join(__dirname, 'theme-picker.js'
 const colorPickerSource = fs.readFileSync(path.join(__dirname, 'color-picker.js'), 'utf8');
 const mobileUxSource = fs.readFileSync(path.join(__dirname, 'mobile-ux.js'), 'utf8');
 const clinicBrandingSource = fs.readFileSync(path.join(__dirname, 'clinic-branding.js'), 'utf8');
+const alertsClientSource = (() => {
+  try { return fs.readFileSync(path.join(__dirname, 'alerts-client.js'), 'utf8'); }
+  catch { return '/* alerts-client.js missing */'; }
+})();
 
 // The clinic app is served as-is at /app (and every SPA route, via the catch-all
 // below). Its own screens decide auth: signed-out visitors get the app's real
@@ -421,7 +425,7 @@ function buildWebIndexHtml() {
   // before the app bundle's first render reads it — that is what makes the very
   // first paint show the clinic's logo, name and colour instead of the
   // platform's.
-  const inject = '\n    <script>window.__pvVersion=' + JSON.stringify(APP_VERSION) + ';</script>\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n  ';
+  const inject = '\n    <script>window.__pvVersion=' + JSON.stringify(APP_VERSION) + ';</script>\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n    <script src="/alerts-client.js" defer></script>\n  ';
   return raw.replace('<head>', '<head>\n    ' + inject);
 }
 const webIndexHtml = buildWebIndexHtml();
@@ -436,6 +440,10 @@ app.get('/color-picker.js', (req, res) => {
 app.get('/clinic-branding.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.type('application/javascript').send(clinicBrandingSource);
+});
+app.get('/alerts-client.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('application/javascript').send(alertsClientSource);
 });
 app.get('/theme-picker.js', (req, res) => {
   res.type('application/javascript').send(themePickerSource);
@@ -508,6 +516,21 @@ app.get('/super-admin', (req, res) => {
 app.use('/super-admin', express.static(SUPER_ADMIN_DIR));
 app.get('/super-admin/{*splat}', (req, res) => {
   res.type('text/html').send(superAdminHtml);
+});
+
+// ── Customer Portal (separate SPA, same origin) ─────────────────────────────
+// Registered before the generic static/catch-all so /portal/* is not answered
+// with the clinic app's index.html.
+const PORTAL_DIR = path.join(__dirname, 'public', 'portal');
+const portalHtml = (() => {
+  try { return fs.readFileSync(path.join(PORTAL_DIR, 'index.html'), 'utf8'); }
+  catch { return '<!doctype html><title>Portal</title><h1>Portal not built</h1>'; }
+})();
+app.get('/portal', (req, res) => res.redirect('/portal/'));
+app.use('/portal', express.static(PORTAL_DIR));
+app.get('/portal/{*splat}', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('text/html').send(portalHtml);
 });
 
 app.use('/assets', (_req, res, next) => {

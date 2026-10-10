@@ -9,6 +9,13 @@ const { AsyncLocalStorage } = require('async_hooks');
 const { ensureSuperAdminSchema, bootstrapSuperAdmin, registerSuperAdmin, authenticatePlatformAdmin } = require('./lib/superAdmin');
 const { registerSuperAdminExt } = require('./lib/superAdminExt');
 const { sendMail } = require('./lib/mailer');
+const registerPortalApi = require('./lib/portalApi');
+
+// SSE fan-out lives in the electron-compat shim (shared with the web server via
+// its __web export). Wrapped so the module still loads under a real Electron
+// runtime / a unit test that never pulled the compat in.
+let sseSend = () => {};
+try { const __w = require('electron').__web; if (__w && typeof __w.sseSend === 'function') sseSend = __w.sseSend; } catch (_) { /* no compat */ }
 
 // Subscription policy: every new clinic gets ONE free month, then pays
 // MONTHLY_PRICE per month. A valid referral code is optional at signup and
@@ -615,6 +622,54 @@ async function ensureFeatureSchema(conn) {
       if (!c.n) await conn.query(`ALTER TABLE vendors ADD COLUMN ${colName} ${colType} DEFAULT NULL`);
     } catch (err) { console.error(`ensureFeatureSchema vendors.${colName} skip`, err.message); }
   }
+  // ── Notification centre ─────────────────────────────────────────────────
+  // One row per alert. STAFF rows are the clinic's own bell (recipient_client_id
+  // NULL, broadcast to every staff member); CLIENT rows target exactly one
+  // customer for the self-service portal. `event_key` makes the writes
+  // idempotent: a retried booking/payment/reminder produces at most one alert
+  // (NULL keys are exempt — MySQL allows many NULLs in a UNIQUE index — so
+  // ad-hoc alerts without a natural key are never collapsed).
+  try {
+    await conn.query(`CREATE TABLE IF NOT EXISTS notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      recipient_audience ENUM('STAFF','CLIENT') NOT NULL DEFAULT 'STAFF',
+      recipient_user_id INT DEFAULT NULL,
+      recipient_client_id INT DEFAULT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT,
+      category VARCHAR(50) NOT NULL DEFAULT 'general',
+      priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+      related_entity_type VARCHAR(50) DEFAULT NULL,
+      related_entity_id INT DEFAULT NULL,
+      action_url VARCHAR(500) DEFAULT NULL,
+      is_read TINYINT(1) NOT NULL DEFAULT 0,
+      read_at DATETIME DEFAULT NULL,
+      event_key VARCHAR(191) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_notifications_audience (recipient_audience, is_read),
+      KEY idx_notifications_client (recipient_client_id, is_read),
+      KEY idx_notifications_created (created_at),
+      UNIQUE KEY uq_notifications_event (event_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  } catch (err) { console.error('ensureFeatureSchema notifications failed:', err.message); }
+  // Self-service customer accounts for the /portal. One per (clinic) email,
+  // linked to the client record whose pets/appointments/bills it may read.
+  try {
+    await conn.query(`CREATE TABLE IF NOT EXISTS client_accounts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_id INT NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      full_name VARCHAR(255) DEFAULT NULL,
+      phone VARCHAR(50) DEFAULT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      notification_prefs TEXT DEFAULT NULL,
+      last_login_at DATETIME DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_client_accounts_email (email),
+      KEY idx_client_accounts_client (client_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  } catch (err) { console.error('ensureFeatureSchema client_accounts failed:', err.message); }
 }
 
 async function ensurePlatformSchema() {
@@ -944,6 +999,10 @@ function authMiddleware(req, res, next) {
 
   const verdict = verifyToken(auth.slice(7));
   if (!verdict.ok) return res.status(401).json({ error: 'Invalid token' });
+  // Customer-portal tokens carry scope:'portal'. They are signed with the same
+  // secret, so without this guard a signed-in customer could call every staff
+  // endpoint with their own token. Portal routes use portalAuthMiddleware.
+  if (verdict.payload.scope === 'portal') return res.status(401).json({ error: 'Invalid token' });
 
   req.userId = Number(verdict.payload.sub);
   req.clinicId = Number(verdict.payload.clinicId) || 1;
@@ -1020,6 +1079,38 @@ function paginate(rows, total, page, pageSize) {
 }
 
 const EMPTY = { data: [], total: 0, page: 1, totalPages: 0 };
+
+// ─── NOTIFICATION CENTRE ────────────────────────────────────────────────────
+// Single writer for every alert in the system. Business routes call this after
+// a successful write; it must never be able to break that write, so it is
+// fire-and-forget and swallows all errors (a duplicate event_key, a missing
+// notifications table on a stale clinic DB, ...). Row + SSE fan-out.
+//
+//   recipientAudience: 'STAFF' (clinic bell, broadcast) | 'CLIENT' (portal)
+//   recipientClientId: required for CLIENT — the customer it targets
+//   eventKey:          optional idempotency key (UNIQUE index collapses retries)
+function notify(payload) {
+  const p = payload || {};
+  const audience = p.recipientAudience === 'CLIENT' ? 'CLIENT' : 'STAFF';
+  const clientId = p.recipientClientId != null ? Number(p.recipientClientId) : null;
+  const userId = p.recipientUserId != null ? Number(p.recipientUserId) : null;
+  const title = String(p.title || '').slice(0, 255);
+  if (!title) return Promise.resolve();
+  let queued;
+  try {
+    queued = db.query(
+      `INSERT INTO notifications
+         (recipient_audience,recipient_user_id,recipient_client_id,title,message,category,priority,related_entity_type,related_entity_id,action_url,event_key)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [audience, userId, clientId, title, p.message || null, p.category || 'general',
+       ['low', 'normal', 'high', 'urgent'].includes(p.priority) ? p.priority : 'normal',
+       p.relatedEntityType || null, p.relatedEntityId || null, p.actionUrl || null, p.eventKey || null],
+    );
+  } catch (e) { return Promise.resolve(); }
+  return Promise.resolve(queued).then(() => {
+    try { sseSend('notifications-updated', { audience, clientId }); } catch (_) {}
+  }).catch(() => {});
+}
 
 // ─── SUBSCRIPTION / FREE-TRIAL HELPERS ──────────────────────────────────────
 // All clinics carry: plan, status, subscription_start, subscription_expiry.
@@ -2096,6 +2187,7 @@ app.post('/api/clients', authMiddleware, async (req, res) => {
     const { clientName, contactNumber, address } = req.body;
     const [r] = await db.query('INSERT INTO clients (client_name,contact_number,address) VALUES (?,?,?)', [clientName, contactNumber||'', address||'']);
     res.json({ data: { id: r.insertId, clientName } });
+    notify({ recipientAudience: 'STAFF', title: 'New client added', message: `${clientName || 'Client'}`, category: 'client', priority: 'low', relatedEntityType: 'client', relatedEntityId: r.insertId, eventKey: `client-new-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.post('/api/clients/with-pet', authMiddleware, async (req, res) => {
@@ -2110,6 +2202,7 @@ app.post('/api/clients/with-pet', authMiddleware, async (req, res) => {
       petRow = { id: pr.insertId, ...pet };
     }
     res.json({ data: { client: { id: cr.insertId, clientName: client.clientName }, pet: petRow } });
+    notify({ recipientAudience: 'STAFF', title: 'New client added', message: `${client.clientName || 'Client'}${pet ? ' with ' + (pet.petName || 'a new pet') : ''}`, category: 'client', priority: 'low', relatedEntityType: 'client', relatedEntityId: cr.insertId, eventKey: `client-new-${cr.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/clients/:id', authMiddleware, async (req, res) => {
@@ -2138,6 +2231,7 @@ app.post('/api/clients/:id/pets', authMiddleware, async (req, res) => {
     const [r] = await db.query('INSERT INTO pets (client_id,pet_name,sex,species,breed,color,date_of_birth,age,is_neutered,is_microchipped) VALUES (?,?,?,?,?,?,?,?,?,?)',
       [req.params.id, d.petName||'', d.sex||'Unknown', d.species||'Dog', d.breed||'', d.color||'', d.dateOfBirth||null, d.age||'', d.isNeutered?1:0, d.isMicrochipped?1:0]);
     res.json({ data: { id: r.insertId } });
+    notify({ recipientAudience: 'STAFF', title: 'New pet registered', message: `${d.petName || 'A pet'} (${d.species || 'pet'})`, category: 'pet', priority: 'low', relatedEntityType: 'pet', relatedEntityId: r.insertId, eventKey: `pet-new-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/clients/:id/unpaid-ledger', authMiddleware, async (req, res) => {
@@ -2179,6 +2273,7 @@ app.post('/api/clients/:id/pay-all', authMiddleware, async (req, res) => {
     const [t] = await db.query(`SELECT COALESCE(SUM(final_total - amount_paid),0) AS due FROM billing WHERE client_id = ? AND ${kindSql.replaceAll('b.', '')} AND final_total > amount_paid`, [req.params.id]);
     const [r] = await db.query(`UPDATE billing SET amount_paid = final_total, status = 'PAID' WHERE client_id = ? AND ${kindSql.replaceAll('b.', '')} AND final_total > amount_paid`, [req.params.id]);
     res.json({ data: { appointmentCount: r.affectedRows, totalPaid: Number(t[0].due) || 0 } });
+    if (r.affectedRows > 0) notify({ recipientAudience: 'STAFF', title: 'Payment received', message: `Rs ${Number(t[0].due || 0).toLocaleString()} settled for client #${req.params.id}`, category: 'payment', relatedEntityType: 'client', relatedEntityId: Number(req.params.id), eventKey: `payall-${req.params.id}-${Date.now()}` });
   } catch { res.json({ success: false }); }
 });
 
@@ -2218,6 +2313,7 @@ app.post('/api/pets', authMiddleware, async (req, res) => {
     const [r] = await db.query('INSERT INTO pets (client_id,pet_name,sex,species,breed,color,date_of_birth,age,is_neutered,is_microchipped) VALUES (?,?,?,?,?,?,?,?,?,?)',
       [d.clientId||d.client_id, d.petName||d.pet_name, d.sex||'Unknown', d.species||'Dog', d.breed||'', d.color||'', d.dateOfBirth||d.date_of_birth||null, d.age||'', d.isNeutered?1:0, d.isMicrochipped?1:0]);
     res.json({ data: { id: r.insertId } });
+    notify({ recipientAudience: 'STAFF', title: 'New pet registered', message: `${d.petName||d.pet_name || 'A pet'} (${d.species || 'pet'})`, category: 'pet', priority: 'low', relatedEntityType: 'pet', relatedEntityId: r.insertId, eventKey: `pet-new-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/pets/:id', authMiddleware, async (req, res) => {
@@ -2351,6 +2447,8 @@ app.patch('/api/products/:id', authMiddleware, async (req, res) => {
     await db.query('UPDATE products SET barcode_number=?,name=?,price=?,quantity=?,category=?,vendor_id=?,vendor_share_percentage=?,vendor_credit_percent=?,vendor_clinic_fixed_per_unit=? WHERE id=?',
       [barcodeNumber || '', name, price || 0, quantity || 0, category || '', vendorId || null, vendorSharePercentage ?? null, vendorCreditPercent ?? null, vendorClinicFixedPerUnit ?? null, req.params.id]);
     res.json({ success: true });
+    const qty = Number(quantity || 0);
+    if (qty <= 5) notify({ recipientAudience: 'STAFF', title: qty <= 0 ? 'Product out of stock' : 'Low stock alert', message: `${name || 'Product'} — ${qty <= 0 ? 'out of stock' : qty + ' left'}.`, category: 'inventory', priority: qty <= 0 ? 'high' : 'normal', relatedEntityType: 'product', relatedEntityId: Number(req.params.id), eventKey: `lowstock-${req.params.id}-${qty}` });
   } catch { res.json({ success: true }); }
 });
 app.delete('/api/products/:id', authMiddleware, async (req, res) => {
@@ -2682,6 +2780,8 @@ app.post('/api/appointments', authMiddleware, async (req, res) => {
       }
     }
     res.json({ data: { id: r.insertId, isNewClient: false, firstTimeFee: 1050 } });
+    notify({ recipientAudience: 'STAFF', title: 'New appointment booked', message: `${d.petName || 'A pet'} — ${d.appointmentDate || d.appointment_date || ''} ${d.appointmentTime || d.appointment_time || ''}`.trim(), category: 'appointment', priority: 'normal', relatedEntityType: 'appointment', relatedEntityId: r.insertId, eventKey: `appt-booked-${r.insertId}` });
+    if (clientId) notify({ recipientAudience: 'CLIENT', recipientClientId: clientId, title: 'Appointment booked', message: `Your appointment is scheduled for ${d.appointmentDate || d.appointment_date || ''} ${d.appointmentTime || d.appointment_time || ''}`.trim(), category: 'appointment', relatedEntityType: 'appointment', relatedEntityId: r.insertId, actionUrl: `/portal/appointments`, eventKey: `appt-booked-client-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/appointments/:id/for-billing', authMiddleware, async (req, res) => {
@@ -2737,7 +2837,21 @@ app.delete('/api/appointments/:id', authMiddleware, async (req, res) => {
   catch { res.json({ success: true }); }
 });
 app.patch('/api/appointments/:id/status', authMiddleware, async (req, res) => {
-  try { await db.query('UPDATE appointments SET status=? WHERE id=?', [req.body.status, req.params.id]); res.json({ success: true }); }
+  try {
+    await db.query('UPDATE appointments SET status=? WHERE id=?', [req.body.status, req.params.id]);
+    res.json({ success: true });
+    const status = String(req.body.status || '').toUpperCase();
+    if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'CONFIRMED') {
+      try {
+        const [a] = await db.query('SELECT a.id, a.client_id, p.pet_name, a.appointment_date FROM appointments a LEFT JOIN pets p ON a.pet_id=p.id WHERE a.id=?', [req.params.id]);
+        if (a.length) {
+          const label = status === 'CANCELLED' ? 'cancelled' : status === 'COMPLETED' ? 'completed' : 'confirmed';
+          notify({ recipientAudience: 'STAFF', title: `Appointment ${label}`, message: `${a[0].pet_name || 'Appointment'} #${a[0].id}`, category: 'appointment', relatedEntityType: 'appointment', relatedEntityId: a[0].id, eventKey: `appt-status-${a[0].id}-${status}` });
+          if (a[0].client_id) notify({ recipientAudience: 'CLIENT', recipientClientId: a[0].client_id, title: `Appointment ${label}`, message: `Your appointment for ${a[0].pet_name || 'your pet'}${a[0].appointment_date ? ' on ' + new Date(a[0].appointment_date).toISOString().slice(0, 10) : ''} has been ${label}.`, category: 'appointment', relatedEntityType: 'appointment', relatedEntityId: a[0].id, actionUrl: '/portal/appointments', eventKey: `appt-status-client-${a[0].id}-${status}` });
+        }
+      } catch (_) {}
+    }
+  }
   catch { res.json({ success: true }); }
 });
 app.patch('/api/appointments/:id/payment-status', authMiddleware, (req, res) => res.json({ success: true }));
@@ -2768,6 +2882,7 @@ app.post('/api/appointments/:id/payments', authMiddleware, async (req, res) => {
     const [r] = await db.query('INSERT INTO billing (appointment_id,client_id,customer_name,customer_phone,amount_paid,status,payment_mode,invoice_no) VALUES (?,?,?,?,?,?,?,?)',
       [req.params.id, clientId||null, clientName||customerPhone||'', customerPhone||'', amountPaid||0, 'PAID', paymentMode||'CASH', invNo]);
     res.json({ data: { id: r.insertId, invoiceNo: invNo, status: 'PAID' } });
+    notify({ recipientAudience: 'STAFF', title: 'Payment received', message: `${invNo} — Rs ${Number(amountPaid||0).toLocaleString()}`, category: 'payment', priority: 'normal', relatedEntityType: 'billing', relatedEntityId: r.insertId, eventKey: `payment-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/appointment-payments', authMiddleware, async (req, res) => {
@@ -2938,6 +3053,12 @@ app.post('/api/billing/complete-payment', authMiddleware, async (req, res) => {
     }
     if (d.appointmentId) { await db.query('UPDATE appointment_products SET locked=1 WHERE appointment_id=?', [d.appointmentId]); }
     res.json({ data: { billingId: invNo, id: r.insertId, subtotal, discount, finalTotal, amountPaid: totalPaid, status } });
+    if (status === 'PAID') {
+      notify({ recipientAudience: 'STAFF', title: 'Payment received', message: `${invNo} — Rs ${Number(finalTotal||0).toLocaleString()}`, category: 'payment', relatedEntityType: 'billing', relatedEntityId: r.insertId, eventKey: `payment-${r.insertId}` });
+      if (d.clientId) notify({ recipientAudience: 'CLIENT', recipientClientId: d.clientId, title: 'Payment received', message: `Rs ${Number(totalPaid||0).toLocaleString()} received — invoice ${invNo}. Thank you!`, category: 'billing', relatedEntityType: 'billing', relatedEntityId: r.insertId, actionUrl: '/portal/billing', eventKey: `payment-client-${r.insertId}` });
+    } else if (status === 'PARTIALLY_PAID' && d.clientId) {
+      notify({ recipientAudience: 'CLIENT', recipientClientId: d.clientId, title: 'Partial payment received', message: `Rs ${Number(totalPaid||0).toLocaleString()} received of Rs ${Number(finalTotal||0).toLocaleString()} — invoice ${invNo}.`, category: 'billing', relatedEntityType: 'billing', relatedEntityId: r.insertId, actionUrl: '/portal/billing', eventKey: `payment-client-${r.insertId}` });
+    }
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.post('/api/billing/preview', authMiddleware, (req, res) => res.json({ ...req.body, invoiceNo: 'PREVIEW' }));
@@ -3194,6 +3315,10 @@ app.post('/api/pets/:petId/soap-notes', authMiddleware, async (req, res) => {
     if (!/^\d+$/.test(req.params.petId)) return res.status(400).json({ error: { message: 'Invalid pet id: ' + req.params.petId, code: 'BAD_REQUEST' } });
     const d = req.body; const [r] = await db.query(`INSERT INTO soap_notes (pet_id,appointment_id,boarding_stay_id,doctor,subjective,objective,assessment,diagnosis,\`plan\`,temperature,temperature_input_unit,heart_rate,respiratory_rate,weight,weight_input_unit,bcs,mucous_membrane,crt,crt_under_2,pulse_quality,hydration_status,mentation,visit_type,condition_status,is_pregnant,has_anemia,vaccination_given,deworming_given,diarrhea_type,vomit_type,ddx,prognosis,next_visit_days,doctor_notes,exam_eyes_normal,exam_eyes_note,exam_eyes_discharge_type,exam_eyes_color,exam_eyes_cornea,exam_eyes_pupils,exam_ears_normal,exam_ears_note,exam_ears_discharge_type,exam_ears_odor,exam_ears_appearance,exam_ears_pain,exam_oral_normal,exam_oral_note,exam_skin_normal,exam_skin_note,exam_lymph_normal,exam_lymph_note,exam_cardio_normal,exam_cardio_note,exam_resp_normal,exam_resp_note,exam_gi_normal,exam_gi_note,exam_musculo_normal,exam_musculo_note,exam_neuro_normal,exam_neuro_note,exam_uro_normal,exam_uro_note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [req.params.petId, d.appointmentId||d.appointment_id||null, d.boardingStayId||d.boarding_stay_id||null, d.doctor||'', d.subjective||'', d.objective||'', d.assessment||'', d.diagnosis||'', d.plan||'', d.temperature||null, d.temperatureInputUnit||d.temperature_input_unit||'C', d.heartRate||d.heart_rate||null, d.respiratoryRate||d.respiratory_rate||null, d.weight||null, d.weightInputUnit||d.weight_input_unit||'kg', d.bcs||null, d.mucousMembrane||d.mucous_membrane||null, d.crt||null, (d.crtUnder2??d.crt_under_2)??null, d.pulseQuality||d.pulse_quality||null, d.hydrationStatus||d.hydration_status||null, d.mentation||null, d.visitType||d.visit_type||null, d.conditionStatus||d.condition_status||null, (d.isPregnant??d.is_pregnant)??0, (d.hasAnemia??d.has_anemia)??0, (d.vaccinationGiven??d.vaccination_given)??0, (d.dewormingGiven??d.deworming_given)??0, d.diarrheaType||d.diarrhea_type||null, d.vomitType||d.vomit_type||null, d.ddx||null, d.prognosis||null, d.nextVisitDays||d.next_visit_days||null, d.doctorNotes||d.doctor_notes||null, (d.examEyesNormal??d.exam_eyes_normal)??1, d.examEyesNote||d.exam_eyes_note||null, d.examEyesDischargeType||d.exam_eyes_discharge_type||null, d.examEyesColor||d.exam_eyes_color||null, d.examEyesCornea||d.exam_eyes_cornea||null, d.examEyesPupils||d.exam_eyes_pupils||null, (d.examEarsNormal??d.exam_ears_normal)??1, d.examEarsNote||d.exam_ears_note||null, d.examEarsDischargeType||d.exam_ears_discharge_type||null, d.examEarsOdor||d.exam_ears_odor||null, d.examEarsAppearance||d.exam_ears_appearance||null, (d.examEarsPain??d.exam_ears_pain)??null, (d.examOralNormal??d.exam_oral_normal)??1, d.examOralNote||d.exam_oral_note||null, (d.examSkinNormal??d.exam_skin_normal)??1, d.examSkinNote||d.exam_skin_note||null, (d.examLymphNormal??d.exam_lymph_normal)??1, d.examLymphNote||d.exam_lymph_note||null, (d.examCardioNormal??d.exam_cardio_normal)??1, d.examCardioNote||d.exam_cardio_note||null, (d.examRespNormal??d.exam_resp_normal)??1, d.examRespNote||d.exam_resp_note||null, (d.examGiNormal??d.exam_gi_normal)??1, d.examGiNote||d.exam_gi_note||null, (d.examMusculoNormal??d.exam_musculo_normal)??1, d.examMusculoNote||d.exam_musculo_note||null, (d.examNeuroNormal??d.exam_neuro_normal)??1, d.examNeuroNote||d.exam_neuro_note||null, (d.examUroNormal??d.exam_uro_normal)??1, d.examUroNote||d.exam_uro_note||null]);
+    const [pt] = await db.query('SELECT pet_name, client_id FROM pets WHERE id=?', [req.params.petId]);
+    const soPetName = pt[0] ? pt[0].pet_name : 'A pet';
+    notify({ recipientAudience: 'STAFF', title: 'New medical record', message: `${soPetName} — SOAP note added${d.doctor ? ' by ' + d.doctor : ''}`, category: 'record', relatedEntityType: 'pet', relatedEntityId: Number(req.params.petId), eventKey: `soap-${r.insertId}` });
+    if (pt[0] && pt[0].client_id) notify({ recipientAudience: 'CLIENT', recipientClientId: pt[0].client_id, title: 'New medical record', message: `A new medical record for ${soPetName} has been added.`, category: 'record', relatedEntityType: 'pet', relatedEntityId: Number(req.params.petId), actionUrl: '/portal/medical-records', eventKey: `soap-client-${r.insertId}` });
     res.json({ data: { id: r.insertId } }); } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/soap-notes/:id', authMiddleware, async (req, res) => {
@@ -3226,6 +3351,10 @@ app.get('/api/pets/:petId/vaccinations', authMiddleware, async (req, res) => { t
 app.post('/api/pets/:petId/vaccinations', authMiddleware, async (req, res) => {
   try { const d = req.body; const [r] = await db.query('INSERT INTO vaccinations (pet_id,vaccine_name,administered_on,next_due_date,batch_number,notes,administered_by) VALUES (?,?,?,?,?,?,?)',
     [req.params.petId, d.vaccineName||d.vaccine_name||'', d.administeredOn||d.administered_on||null, d.nextDueDate||d.next_due_date||null, d.batchNumber||d.batch_number||'', d.notes||'', d.administeredBy||d.administered_by||'']);
+    const [vp] = await db.query('SELECT pet_name, client_id FROM pets WHERE id=?', [req.params.petId]);
+    const vPetName = vp[0] ? vp[0].pet_name : 'A pet';
+    notify({ recipientAudience: 'STAFF', title: 'Vaccination recorded', message: `${vPetName} — ${d.vaccineName||d.vaccine_name||'vaccine'}`, category: 'record', relatedEntityType: 'pet', relatedEntityId: Number(req.params.petId), eventKey: `vacc-${r.insertId}` });
+    if (vp[0] && vp[0].client_id) notify({ recipientAudience: 'CLIENT', recipientClientId: vp[0].client_id, title: 'Vaccination recorded', message: `${vPetName} received ${d.vaccineName||d.vaccine_name||'a vaccine'}${(d.nextDueDate||d.next_due_date) ? ' — next due ' + (d.nextDueDate||d.next_due_date) : ''}.`, category: 'record', relatedEntityType: 'pet', relatedEntityId: Number(req.params.petId), actionUrl: '/portal/medical-records', eventKey: `vacc-client-${r.insertId}` });
     res.json({ data: { id: r.insertId } }); } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.patch('/api/vaccinations/:id', authMiddleware, async (req, res) => { try { const d = req.body; await db.query('UPDATE vaccinations SET vaccine_name=?,administered_on=?,next_due_date=?,batch_number=?,notes=?,administered_by=? WHERE id=?',
@@ -3747,6 +3876,8 @@ app.post('/api/boarding/stays', authMiddleware, async (req, res) => {
       [d.branchId || null, d.petId || null, clientId, d.cageUnitId || null, d.serviceId || null, d.dateIn || null, d.expectedCheckoutDate || null, 'ACTIVE', purpose, purpose === 'HOSPITALIZATION' ? purpose : null, d.requiresMonitoring ? 1 : 0, d.notes || null, d.needsVaccination ? 1 : 0, d.needsDeworming ? 1 : 0, d.ownerProvidesFood ? 1 : 0, d.feedingIntervalMinutes || null, d.monitoringIntervalMinutes || null]);
     const [rows] = await db.query(`${STAY_SELECT} WHERE s.id=?`, [r.insertId]);
     res.json({ data: boardingStay(rows[0]) });
+    notify({ recipientAudience: 'STAFF', title: purpose === 'HOSPITALIZATION' ? 'Hospitalization admitted' : 'Boarding check-in', message: `${d.petName || rows[0]?.pet_name || 'A pet'} — ${purpose}`, category: 'boarding', priority: purpose === 'HOSPITALIZATION' ? 'high' : 'normal', relatedEntityType: 'boarding_stay', relatedEntityId: r.insertId, eventKey: `boarding-in-${r.insertId}` });
+    if (clientId) notify({ recipientAudience: 'CLIENT', recipientClientId: clientId, title: purpose === 'HOSPITALIZATION' ? 'Your pet has been admitted' : 'Boarding confirmed', message: `${rows[0]?.pet_name || 'Your pet'} ${purpose === 'HOSPITALIZATION' ? 'is under our care' : 'is checked in'}${d.expectedCheckoutDate ? ' — expected out ' + d.expectedCheckoutDate : ''}.`, category: 'boarding', relatedEntityType: 'boarding_stay', relatedEntityId: r.insertId, actionUrl: '/portal/boarding', eventKey: `boarding-in-client-${r.insertId}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/boarding/stays/active', authMiddleware, async (req, res) => {
@@ -3805,6 +3936,8 @@ app.post('/api/boarding/stays/:id/checkout', authMiddleware, async (req, res) =>
     const s = rows[0] || {};
     const days = s.date_in ? Math.max(1, Math.round((Date.now() - new Date(s.date_in).getTime()) / 86400000)) : 1;
     res.json({ data: { nights: days, serviceName: s.service_name || null, serviceRate: Number(s.service_rate) || 0, branchId: s.branch_id || null } });
+    notify({ recipientAudience: 'STAFF', title: 'Boarding checked out', message: `${s.pet_name || 'A pet'} checked out — ${days} night(s)`, category: 'boarding', relatedEntityType: 'boarding_stay', relatedEntityId: Number(req.params.id), eventKey: `boarding-out-${req.params.id}` });
+    if (s.client_id) notify({ recipientAudience: 'CLIENT', recipientClientId: s.client_id, title: 'Your pet is ready', message: `${s.pet_name || 'Your pet'} has been checked out after ${days} night(s).`, category: 'boarding', relatedEntityType: 'boarding_stay', relatedEntityId: Number(req.params.id), actionUrl: '/portal/boarding', eventKey: `boarding-out-client-${req.params.id}` });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.post('/api/boarding/stays/:id/feeding', authMiddleware, async (req, res) => {
@@ -3929,7 +4062,60 @@ app.post('/api/ai/scan-product-image', authMiddleware, (req, res) => res.json({ 
 app.get('/api/discount-range', authMiddleware, (req, res) => res.json({ min: 0, max: 50 }));
 app.get('/api/time-format', authMiddleware, (req, res) => res.json({ use12Hour: false }));
 
-// â”€â”€â”€ CATCH-ALL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── NOTIFICATION CENTRE (staff bell + Alerts page) ─────────────────────────
+// Staff see every STAFF-audience row, plus any row addressed to them
+// specifically. Client-audience rows never appear here.
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    const lim = Math.min(P(req.query.limit) || 30, 200);
+    const conditions = ["recipient_audience='STAFF'", '(recipient_user_id IS NULL OR recipient_user_id=?)'];
+    const params = [req.userId || 0];
+    if (String(req.query.unreadOnly) === 'true' || String(req.query.unreadOnly) === '1') conditions.push('is_read=0');
+    if (req.query.category) { conditions.push('category=?'); params.push(req.query.category); }
+    const where = conditions.join(' AND ');
+    const [rows] = await db.query(`SELECT * FROM notifications WHERE ${where} ORDER BY created_at DESC, id DESC LIMIT ?`, [...params, lim]);
+    const [cnt] = await db.query('SELECT COUNT(*) AS total, SUM(is_read=0) AS unread FROM notifications WHERE recipient_audience=\'STAFF\' AND (recipient_user_id IS NULL OR recipient_user_id=?)', [req.userId || 0]);
+    res.json({ data: toCamel(rows), total: Number(cnt[0].total) || 0, unread: Number(cnt[0].unread) || 0 });
+  } catch { res.json({ data: [], total: 0, unread: 0 }); }
+});
+app.get('/api/notifications/count', authMiddleware, async (req, res) => {
+  try {
+    const [cnt] = await db.query('SELECT COUNT(*) AS total, SUM(is_read=0) AS unread FROM notifications WHERE recipient_audience=\'STAFF\' AND (recipient_user_id IS NULL OR recipient_user_id=?)', [req.userId || 0]);
+    res.json({ data: { total: Number(cnt[0].total) || 0, unread: Number(cnt[0].unread) || 0 } });
+  } catch { res.json({ data: { total: 0, unread: 0 } }); }
+});
+app.patch('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+  try { await db.query("UPDATE notifications SET is_read=1, read_at=IFNULL(read_at,NOW()) WHERE id=? AND recipient_audience='STAFF'", [req.params.id]); res.json({ success: true }); }
+  catch { res.json({ success: false }); }
+});
+app.post('/api/notifications/read-all', authMiddleware, async (req, res) => {
+  try {
+    const [r] = await db.query("UPDATE notifications SET is_read=1, read_at=IFNULL(read_at,NOW()) WHERE is_read=0 AND recipient_audience='STAFF' AND (recipient_user_id IS NULL OR recipient_user_id=?)", [req.userId || 0]);
+    try { sseSend('notifications-updated', { audience: 'STAFF' }); } catch (_) {}
+    res.json({ success: true, updated: r.affectedRows || 0 });
+  } catch { res.json({ success: false }); }
+});
+app.delete('/api/notifications/:id', authMiddleware, async (req, res) => {
+  try { await db.query("DELETE FROM notifications WHERE id=? AND recipient_audience='STAFF'", [req.params.id]); res.json({ success: true }); }
+  catch { res.json({ success: false }); }
+});
+// Manual "alert all staff" from the Alerts page.
+app.post('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    const { title, message, category, priority, relatedEntityType, relatedEntityId, actionUrl } = req.body || {};
+    if (!title) return res.status(400).json({ error: { message: 'title is required' } });
+    await notify({ recipientAudience: 'STAFF', title, message, category, priority, relatedEntityType, relatedEntityId, actionUrl });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: { message: e.message } }); }
+});
+
+// ─── CUSTOMER PORTAL API (registered before the /api catch-all) ─────────────
+registerPortalApi(app, {
+  db, platConn, clinicStore, bcrypt, getTokenSecret, toCamel, P,
+  notify, getClinicConn, clinicBrandingFor, guardClinicSubscription,
+});
+
+// ─── CATCH-ALL ──────────────────────────────────────────────────────────────
 // â”€â”€â”€ PLATFORM SUPER ADMIN (registered before the /api catch-all) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const superAdminApi = registerSuperAdmin(app, {
   platConn, getClinicConn, createClinicDatabase, bcrypt, makeToken, okClinicSession,
