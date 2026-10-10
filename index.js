@@ -526,7 +526,6 @@ const portalHtml = (() => {
   try { return fs.readFileSync(path.join(PORTAL_DIR, 'index.html'), 'utf8'); }
   catch { return '<!doctype html><title>Portal</title><h1>Portal not built</h1>'; }
 })();
-app.get('/portal', (req, res) => res.redirect('/portal/'));
 app.use('/portal', express.static(PORTAL_DIR));
 app.get('/portal/{*splat}', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
