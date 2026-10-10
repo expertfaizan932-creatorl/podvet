@@ -87,8 +87,8 @@
   };
   function icon(name, cls) { return el('span', { class: cls || 'ic', html: svg(ICONS[name] || '') }); }
 
-  function logoUrl() { return (state.clinic && state.clinic.logoUrl) || '/brand/logo-primary.png'; }
-  function clinicName() { return (state.clinic && state.clinic.clinicName) || 'Pet Clinic'; }
+  function logoUrl() { return (state.clinic && state.clinic.logoUrl) || '/brand/icon-primary.png'; }
+  function clinicName() { return (state.clinic && state.clinic.clinicName) || 'PodVet'; }
   function fmtDate(d) { if (!d) return '—'; var x = new Date(d); if (isNaN(x)) return String(d); return x.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
   function fmtDateTime(d) { if (!d) return ''; var x = new Date(d); if (isNaN(x)) return String(d); return x.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   function money(n) { return 'Rs ' + Number(n || 0).toLocaleString(); }
