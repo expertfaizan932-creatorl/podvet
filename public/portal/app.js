@@ -81,6 +81,9 @@
     x: '<path d="M18 6L6 18M6 6l12 12"/>',
     paw: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M11 12c-3 0-6 2-6 5a3 3 0 0 0 6 0c0-3 3-3 6 0a3 3 0 0 0 6 0c0-3-3-5-6-5"/>',
     wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
+    tag: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>',
+    alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+    message: '<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 0 1 12 3a8.38 8.38 0 0 1 9 8.5z"/>',
   };
   function icon(name, cls) { return el('span', { class: cls || 'ic', html: svg(ICONS[name] || '') }); }
 
@@ -262,7 +265,7 @@
   function stopPolling() { if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; } }
 
   function notifIcon(cat) {
-    var map = { appointment: 'calendar', payment: 'wallet', billing: 'wallet', boarding: 'home', record: 'file', pet: 'pets', client: 'user', inventory: 'pets' };
+    var map = { appointment: 'calendar', payment: 'wallet', billing: 'wallet', boarding: 'home', record: 'file', pet: 'pets', client: 'user', inventory: 'pets', offer: 'tag', promotion: 'tag', alert: 'alert', general: 'message', message: 'message' };
     return map[cat] || 'bell';
   }
   function renderBellList(container) {
@@ -547,7 +550,7 @@
     var r = await api('/api/portal/notifications?limit=100');
     var list = r.data || [];
     function markRead(n, node) { if (n.isRead) return; api('/api/portal/notifications/' + n.id + '/read', { method: 'PATCH' }).then(function () { n.isRead = 1; node.classList.remove('unread'); state.notif.unread = Math.max(0, state.notif.unread - 1); var b = document.getElementById('pv-portal-bell-badge'); if (b) { b.textContent = state.notif.unread; b.style.display = state.notif.unread > 0 ? 'flex' : 'none'; } }).catch(function () {}); }
-    return el('div', {}, pageHead('Notifications', 'Appointment updates, records and billing alerts',
+    return el('div', {}, pageHead('Notifications', 'Appointment updates, offers, records and billing alerts',
       r.unread > 0 ? el('button', { class: 'pv-btn pv-btn-ghost', onClick: async function () { try { await api('/api/portal/notifications/read-all', { method: 'POST' }); toast('Marked all as read', 'ok'); render(); } catch (e) {} } }, icon('check'), 'Mark all read') : null),
       list.length ? el('div', { class: 'pv-card pv-list' }, list.map(function (n) {
         var node = el('div', { class: 'pv-list-item' + (n.isRead ? '' : ' unread'), onClick: function () { markRead(n, node); } },

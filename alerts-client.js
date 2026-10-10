@@ -57,10 +57,15 @@
     record: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>',
     pet: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M11 12c-3 0-6 2-6 5a3 3 0 0 0 6 0c0-3 3-3 6 0a3 3 0 0 0 6 0c0-3-3-5-6-5"/>',
     client: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+    offer: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>',
+    alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+    general: '<path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 0 1 12 3a8.38 8.38 0 0 1 9 8.5z"/>',
   };
   function iconFor(cat) {
-    var map = { appointment: 'appointment', billing: 'billing', payment: 'billing', boarding: 'boarding', record: 'record', pet: 'pet', client: 'client' };
-    return ICONS[map[cat] || 'bell'] ? map[cat] || 'bell' : 'bell';
+    var map = { appointment: 'appointment', billing: 'billing', payment: 'billing', boarding: 'boarding', record: 'record', pet: 'pet', client: 'client', offer: 'offer', promotion: 'offer', alert: 'alert', general: 'general', message: 'general' };
+    var k = map[cat] || 'bell';
+    return ICONS[k] ? k : 'bell';
   }
 
   function timeAgo(iso) {
@@ -102,6 +107,9 @@
     '.pva-ic.record{background:#ede9fe;color:#7c3aed;}',
     '.pva-ic.pet{background:#ccfbf1;color:#0d9488;}',
     '.pva-ic.client{background:#fce7f3;color:#db2777;}',
+    '.pva-ic.offer{background:#fef9c3;color:#ca8a04;}',
+    '.pva-ic.alert{background:#fee2e2;color:#dc2626;}',
+    '.pva-ic.general{background:#e0e7ff;color:#4f46e5;}',
     '.pva-body{flex:1;min-width:0;}',
     '.pva-title{font-size:14px;font-weight:600;color:#0f172a;}',
     '.pva-msg{font-size:13px;color:#475569;margin-top:2px;word-break:break-word;}',
@@ -115,6 +123,31 @@
     '.pva-btn:disabled{opacity:.55;cursor:default;}',
     '.pva-close{border:0;background:transparent;font-size:24px;line-height:1;color:#94a3b8;cursor:pointer;padding:0 4px;}',
     '.pva-close:hover{color:#334155;}',
+    '.pva-comp{flex:1;overflow-y:auto;padding:16px 18px 24px;display:flex;flex-direction:column;gap:14px;}',
+    '.pva-comp[hidden]{display:none !important;}',
+    '.pva-field{display:flex;flex-direction:column;gap:6px;}',
+    '.pva-field>label{font-size:12.5px;font-weight:600;color:#475569;}',
+    '.pva-field input[type=text],.pva-field textarea,.pva-field select,.pva-cust-search{width:100%;box-sizing:border-box;border:1px solid #d7dee6;border-radius:9px;padding:9px 11px;font-size:13.5px;color:#0f172a;font-family:inherit;background:#fff;}',
+    '.pva-field textarea{resize:vertical;min-height:76px;}',
+    '.pva-field input:focus,.pva-field textarea:focus,.pva-field select:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.14);}',
+    '.pva-seg{display:flex;gap:6px;background:#f1f5f9;border-radius:10px;padding:4px;}',
+    '.pva-seg button{flex:1;border:0;background:transparent;border-radius:7px;padding:8px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;}',
+    '.pva-seg button.active{background:#fff;color:#0d9488;box-shadow:0 1px 3px rgba(15,23,42,.12);}',
+    '.pva-cust{max-height:190px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:4px;}',
+    '.pva-cust-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;}',
+    '.pva-cust-row:hover{background:#f8fafc;}',
+    '.pva-cust-row.on{background:#f0fdfa;}',
+    '.pva-cust-row input{width:16px;height:16px;accent-color:#0d9488;flex:0 0 auto;}',
+    '.pva-cust-name{font-size:13.5px;color:#0f172a;font-weight:500;}',
+    '.pva-cust-sub{font-size:11.5px;color:#94a3b8;margin-left:auto;}',
+    '.pva-tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 7px;background:#e2e8f0;color:#64748b;}',
+    '.pva-tag.on{background:#ccfbf1;color:#0d9488;}',
+    '.pva-hint{font-size:11.5px;color:#94a3b8;}',
+    '.pva-foot{margin-top:auto;display:flex;align-items:center;gap:12px;padding-top:6px;}',
+    '.pva-foot .pva-btn{padding:10px 18px;}',
+    '.pva-sent{font-size:12.5px;font-weight:600;color:#16a34a;}',
+    '.pva-sent.err{color:#ef4444;}',
+    '.pva-cust-empty{padding:14px;text-align:center;color:#94a3b8;font-size:12.5px;}',
   ].join('\n');
 
   function ensureStyle() {
@@ -126,7 +159,10 @@
   }
 
   // ── state ──
-  var state = { items: [], unread: 0, tab: 'all', open: false, loading: false, error: null };
+  var state = {
+    items: [], unread: 0, tab: 'all', open: false, loading: false, error: null,
+    customers: [], customersLoaded: false, customersLoading: false, customerSel: {}, recipMode: 'all', sending: false,
+  };
 
   function paintBadge() {
     var b = document.getElementById('pva-nav-badge');
@@ -173,28 +209,107 @@
         '<div class="pva-tabs">' +
           '<button class="pva-tab active" data-tab="all" type="button">All</button>' +
           '<button class="pva-tab" data-tab="unread" type="button">Unread</button>' +
+          '<button class="pva-tab" data-tab="send" type="button">' + svg(ICONS.send) + ' Send</button>' +
         '</div>' +
         '<div class="pva-list" id="pva-list"></div>' +
+        '<div class="pva-comp" id="pva-comp" hidden>' +
+          '<div class="pva-field">' +
+            '<label>Send to</label>' +
+            '<div class="pva-seg" id="pva-seg">' +
+              '<button type="button" data-mode="all" class="active">All portal customers</button>' +
+              '<button type="button" data-mode="one">Specific customers</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pva-field" id="pva-cust-wrap" hidden>' +
+            '<input type="text" class="pva-cust-search" id="pva-cust-search" placeholder="Search customer by name or phone…">' +
+            '<div class="pva-cust" id="pva-cust"></div>' +
+            '<div class="pva-hint" id="pva-cust-sel">None selected — customers without a portal login won\'t see it until they sign up.</div>' +
+          '</div>' +
+          '<div class="pva-field">' +
+            '<label>Type</label>' +
+            '<select id="pva-cat">' +
+              '<option value="offer">Offer / Promotion</option>' +
+              '<option value="alert">Alert</option>' +
+              '<option value="general">General message</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="pva-field">' +
+            '<label>Priority</label>' +
+            '<select id="pva-prio">' +
+              '<option value="normal">Normal</option>' +
+              '<option value="high">High</option>' +
+              '<option value="urgent">Urgent</option>' +
+              '<option value="low">Low</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="pva-field">' +
+            '<label>Title</label>' +
+            '<input type="text" id="pva-t" maxlength="255" placeholder="e.g. 20% off vaccinations this week">' +
+          '</div>' +
+          '<div class="pva-field">' +
+            '<label>Message</label>' +
+            '<textarea id="pva-m" rows="4" maxlength="2000" placeholder="Write the offer or alert for your customers…"></textarea>' +
+          '</div>' +
+          '<div class="pva-foot">' +
+            '<button class="pva-btn primary" id="pva-send" type="button">Send to customers</button>' +
+            '<span class="pva-sent" id="pva-sent"></span>' +
+          '</div>' +
+        '</div>' +
       '</aside>';
     document.body.appendChild(overlay);
     overlay.querySelector('.pva-backdrop').addEventListener('click', closeOverlay);
     overlay.querySelector('#pva-close').addEventListener('click', closeOverlay);
     overlay.querySelector('#pva-read-all').addEventListener('click', markAll);
     overlay.querySelectorAll('.pva-tab').forEach(function (b) {
-      b.addEventListener('click', function () {
-        state.tab = b.dataset.tab;
-        overlay.querySelectorAll('.pva-tab').forEach(function (x) { x.classList.toggle('active', x === b); });
-        renderList();
-      });
+      b.addEventListener('click', function () { selectTab(b.dataset.tab); });
     });
+    overlay.querySelector('#pva-seg').addEventListener('click', function (ev) {
+      var b = ev.target.closest && ev.target.closest('button[data-mode]');
+      if (!b) return;
+      state.recipMode = b.dataset.mode;
+      overlay.querySelectorAll('#pva-seg button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      var wrap = document.getElementById('pva-cust-wrap');
+      if (wrap) wrap.hidden = state.recipMode !== 'one';
+      if (state.recipMode === 'one') loadCustomers('');
+      updateSelHint();
+    });
+    var search = overlay.querySelector('#pva-cust-search');
+    var deb = null;
+    search.addEventListener('input', function () {
+      clearTimeout(deb);
+      var v = search.value;
+      deb = setTimeout(function () { loadCustomers(v); }, 250);
+    });
+    overlay.querySelector('#pva-send').addEventListener('click', sendMessage);
     return overlay;
+  }
+
+  function selectTab(tab) {
+    state.tab = tab === 'unread' || tab === 'send' ? tab : 'all';
+    var overlay = document.getElementById('pv-alerts-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('.pva-tab').forEach(function (x) { x.classList.toggle('active', x.dataset.tab === state.tab); });
+    var list = document.getElementById('pva-list');
+    var comp = document.getElementById('pva-comp');
+    var readAll = document.getElementById('pva-read-all');
+    var isSend = state.tab === 'send';
+    if (list) list.hidden = isSend;
+    if (comp) comp.hidden = !isSend;
+    if (readAll) readAll.style.display = isSend ? 'none' : '';
+    if (isSend) {
+      if (state.recipMode === 'one') loadCustomers(document.getElementById('pva-cust-search') ? document.getElementById('pva-cust-search').value : '');
+      updateSelHint();
+    } else {
+      renderList();
+    }
   }
 
   function openOverlay() {
     ensureOverlay();
     document.getElementById('pv-alerts-overlay').hidden = false;
     state.open = true;
-    load();
+    selectTab(state.tab);
+    if (state.tab !== 'send') load();
   }
   function closeOverlay() {
     var o = document.getElementById('pv-alerts-overlay');
@@ -256,6 +371,87 @@
       state.items.forEach(function (n) { n.isRead = 1; });
       state.unread = 0; paintBadge(); renderList();
     }).catch(function () {});
+  }
+
+  // ── compose (send alert / offer to customers) ──
+  function loadCustomers(search) {
+    if (!token()) return;
+    state.customersLoading = true;
+    renderCustomers();
+    var path = '/api/notifications/customers?limit=500';
+    if (search) path += '&search=' + encodeURIComponent(search);
+    return api(path).then(function (r) {
+      state.customers = (r && r.data) || [];
+      state.customersLoaded = true; state.customersLoading = false;
+      renderCustomers();
+    }).catch(function () { state.customersLoading = false; renderCustomers(); });
+  }
+
+  function renderCustomers() {
+    var box = document.getElementById('pva-cust');
+    if (!box) return;
+    if (state.customersLoading && !state.customers.length) { box.innerHTML = '<div class="pva-cust-empty">Loading&hellip;</div>'; return; }
+    if (!state.customers.length) { box.innerHTML = '<div class="pva-cust-empty">No customers found</div>'; return; }
+    box.innerHTML = '';
+    state.customers.forEach(function (c) {
+      var on = !!state.customerSel[c.id];
+      var row = document.createElement('label');
+      row.className = 'pva-cust-row' + (on ? ' on' : '');
+      row.innerHTML =
+        '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
+        '<span class="pva-cust-name">' + escapeHtml(c.clientName || ('Customer #' + c.id)) + '</span>' +
+        (c.hasPortal ? '<span class="pva-tag on">Portal</span>' : '<span class="pva-tag">No login</span>') +
+        (c.contactNumber ? '<span class="pva-cust-sub">' + escapeHtml(c.contactNumber) + '</span>' : '');
+      var cb = row.querySelector('input');
+      cb.addEventListener('change', function () {
+        if (cb.checked) state.customerSel[c.id] = true; else delete state.customerSel[c.id];
+        row.classList.toggle('on', cb.checked);
+        updateSelHint();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function updateSelHint() {
+    var el = document.getElementById('pva-cust-sel');
+    if (!el) return;
+    if (state.recipMode === 'all') {
+      el.textContent = 'This sends to every customer that has a portal account.';
+    } else {
+      var n = Object.keys(state.customerSel).length;
+      el.textContent = n + ' customer' + (n === 1 ? '' : 's') + ' selected. Customers without a portal login won\u2019t see it until they sign up.';
+    }
+  }
+
+  function sendMessage() {
+    if (state.sending) return;
+    var title = (document.getElementById('pva-t').value || '').trim();
+    var msg = (document.getElementById('pva-m').value || '').trim();
+    var cat = document.getElementById('pva-cat').value;
+    var prio = document.getElementById('pva-prio').value;
+    var out = document.getElementById('pva-sent');
+    if (!title) { out.className = 'pva-sent err'; out.textContent = 'Title is required'; return; }
+    var body = { title: title, message: msg, category: cat, priority: prio };
+    if (state.recipMode === 'all') {
+      body.all = true;
+    } else {
+      var ids = Object.keys(state.customerSel).map(Number);
+      if (!ids.length) { out.className = 'pva-sent err'; out.textContent = 'Select at least one customer'; return; }
+      body.clientIds = ids;
+    }
+    state.sending = true;
+    var btn = document.getElementById('pva-send');
+    btn.disabled = true; out.className = 'pva-sent'; out.textContent = 'Sending\u2026';
+    api('/api/notifications/send', { method: 'POST', body: body }).then(function (r) {
+      state.sending = false; btn.disabled = false;
+      var n = (r && r.sent) || 0;
+      out.className = 'pva-sent'; out.textContent = 'Sent to ' + n + ' customer' + (n === 1 ? '' : 's');
+      document.getElementById('pva-t').value = ''; document.getElementById('pva-m').value = '';
+      state.customerSel = {}; renderCustomers(); updateSelHint();
+    }).catch(function (e) {
+      state.sending = false; btn.disabled = false;
+      out.className = 'pva-sent err'; out.textContent = e.message || 'Could not send';
+    });
   }
 
   function escapeHtml(s) {

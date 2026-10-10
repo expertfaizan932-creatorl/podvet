@@ -4109,6 +4109,54 @@ app.post('/api/notifications', authMiddleware, async (req, res) => {
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 
+// Customers for the "send alert / offer" picker. Lists this clinic's clients and
+// flags which already have a portal account (i.e. who can receive in-app).
+app.get('/api/notifications/customers', authMiddleware, async (req, res) => {
+  try {
+    const lim = Math.min(P(req.query.limit) || 200, 1000);
+    const search = String(req.query.search || '').trim();
+    let where = '', params = [];
+    if (search) { where = 'WHERE c.client_name LIKE ? OR c.contact_number LIKE ?'; params = [`%${search}%`, `%${search}%`]; }
+    const [rows] = await db.query(
+      `SELECT c.id, c.client_name, c.contact_number,
+              (SELECT COUNT(*) FROM client_accounts ca WHERE ca.client_id=c.id AND ca.is_active=1) AS has_portal
+         FROM clients c ${where} ORDER BY c.client_name LIMIT ?`, [...params, lim]);
+    res.json({ data: rows.map((r) => ({ id: r.id, clientName: r.client_name, contactNumber: r.contact_number, hasPortal: Number(r.has_portal) > 0 })) });
+  } catch { res.json({ data: [] }); }
+});
+
+// Send an alert / offer / message to one or many customers. Each recipient gets
+// their own CLIENT notification, which appears in their customer-portal bell.
+// `all:true` targets every customer that has an active portal account.
+app.post('/api/notifications/send', authMiddleware, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const title = String(b.title || '').trim();
+    if (!title) return res.status(400).json({ error: { message: 'title is required' } });
+    const category = ['offer', 'alert', 'general', 'appointment', 'billing', 'medical'].includes(b.category) ? b.category : 'general';
+    const priority = ['low', 'normal', 'high', 'urgent'].includes(b.priority) ? b.priority : 'normal';
+    const message = b.message ? String(b.message).slice(0, 2000) : null;
+    let ids = [];
+    if (b.all) {
+      const [rows] = await db.query('SELECT DISTINCT client_id FROM client_accounts WHERE is_active=1 AND client_id IS NOT NULL');
+      ids = rows.map((r) => Number(r.client_id)).filter(Boolean);
+    } else if (Array.isArray(b.clientIds)) {
+      ids = b.clientIds.map(Number).filter(Boolean);
+    }
+    ids = [...new Set(ids)];
+    if (!ids.length) return res.status(400).json({ error: { message: 'No recipients selected' } });
+    let sent = 0;
+    for (const cid of ids) {
+      await notify({
+        recipientAudience: 'CLIENT', recipientClientId: cid, title, message, category, priority,
+        relatedEntityType: 'broadcast', actionUrl: b.actionUrl || '/portal/notifications',
+      });
+      sent++;
+    }
+    res.json({ success: true, sent });
+  } catch (e) { res.status(500).json({ error: { message: e.message } }); }
+});
+
 // ─── CUSTOMER PORTAL API (registered before the /api catch-all) ─────────────
 registerPortalApi(app, {
   db, platConn, clinicStore, bcrypt, getTokenSecret, toCamel, P,
