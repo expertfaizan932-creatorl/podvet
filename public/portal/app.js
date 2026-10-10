@@ -159,55 +159,27 @@
     } catch (e) { state.clinicId = state.clinicId || 1; }
   }
 
-  function renderAuth(mode) {
+  // Sign-in only. Accounts are created by the clinic (which shares the
+  // credentials with the customer), so there is no self sign-up here.
+  function renderAuth() {
     var root = document.getElementById('pv-portal-root');
     root.innerHTML = '';
     var errBox = el('div', { class: 'pv-alert pv-alert-error', style: { display: 'none' } });
     function fail(msg) { errBox.textContent = msg; errBox.style.display = 'block'; }
 
-    var isLogin = mode === 'login';
-    var form;
-    if (isLogin) {
-      var email = input({ type: 'email', placeholder: 'you@example.com', autocomplete: 'email' });
-      var pass = input({ type: 'password', placeholder: 'Your password', autocomplete: 'current-password' });
-      form = el('form', {
-        onSubmit: async function (e) {
-          e.preventDefault();
-          var btn = form.querySelector('button[type=submit]'); btn.disabled = true;
-          try {
-            var r = await api('/api/portal/login', { method: 'POST', auth: false, body: { clinicId: state.clinicId || 1, email: email.value.trim(), password: pass.value } });
-            adoptSession(r);
-          } catch (ex) { fail(ex.message); btn.disabled = false; }
-        }
-      }, errBox, field('Email', email), field('Password', pass),
-        el('button', { class: 'pv-btn pv-btn-primary pv-btn-block', type: 'submit' }, 'Sign in'));
-    } else {
-      var rname = input({ type: 'text', placeholder: 'Your full name' });
-      var remail = input({ type: 'email', placeholder: 'you@example.com' });
-      var rphone = input({ type: 'tel', placeholder: 'Phone number' });
-      var raddr = input({ type: 'text', placeholder: 'Address (optional)' });
-      var rpass = input({ type: 'password', placeholder: 'At least 6 characters' });
-      var petName = input({ type: 'text', placeholder: "Your pet's name (optional)" });
-      var petSpecies = select({}, [{ value: 'Dog', label: 'Dog' }, { value: 'Cat', label: 'Cat' }, { value: 'Bird', label: 'Bird' }, { value: 'Other', label: 'Other' }]);
-      form = el('form', {
-        onSubmit: async function (e) {
-          e.preventDefault();
-          var btn = form.querySelector('button[type=submit]'); btn.disabled = true;
-          try {
-            var body = { clinicId: state.clinicId || 1, fullName: rname.value.trim(), email: remail.value.trim(), phone: rphone.value.trim(), address: raddr.value.trim(), password: rpass.value };
-            if (petName.value.trim()) body.pet = { petName: petName.value.trim(), species: petSpecies.value };
-            var r = await api('/api/portal/register', { method: 'POST', auth: false, body: body });
-            adoptSession(r);
-            toast('Welcome! Your account is ready.', 'ok');
-          } catch (ex) { fail(ex.message); btn.disabled = false; }
-        }
-      }, errBox,
-        field('Full name', rname), field('Email', remail),
-        el('div', { class: 'pv-row' }, field('Phone', rphone), field('Address', raddr)),
-        field('Password', rpass),
-        el('div', { class: 'pv-row' }, field('Pet name (optional)', petName), field('Species', petSpecies)),
-        el('button', { class: 'pv-btn pv-btn-primary pv-btn-block', type: 'submit' }, 'Create account'));
-    }
+    var email = input({ type: 'email', placeholder: 'you@example.com', autocomplete: 'email' });
+    var pass = input({ type: 'password', placeholder: 'Your password', autocomplete: 'current-password' });
+    var form = el('form', {
+      onSubmit: async function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type=submit]'); btn.disabled = true;
+        try {
+          var r = await api('/api/portal/login', { method: 'POST', auth: false, body: { clinicId: state.clinicId || 1, email: email.value.trim(), password: pass.value } });
+          adoptSession(r);
+        } catch (ex) { fail(ex.message); btn.disabled = false; }
+      }
+    }, errBox, field('Email', email), field('Password', pass),
+      el('button', { class: 'pv-btn pv-btn-primary pv-btn-block', type: 'submit' }, 'Sign in'));
 
     var aside = el('aside', { class: 'pv-auth-aside' },
       el('div', { class: 'pv-auth-brand' }, el('img', { src: logoUrl(), alt: '' }), el('span', { text: clinicName() })),
@@ -223,12 +195,10 @@
 
     var main = el('main', { class: 'pv-auth-main' },
       el('div', { class: 'pv-auth-card' },
-        el('h2', { text: isLogin ? 'Welcome back' : 'Create your account' }),
-        el('p', { class: 'sub', text: isLogin ? 'Sign in to ' + clinicName() : 'Set up your pet portal in a minute.' }),
+        el('h2', { text: 'Welcome back' }),
+        el('p', { class: 'sub', text: 'Sign in to ' + clinicName() }),
         form,
-        el('div', { class: 'pv-auth-switch' },
-          isLogin ? 'New here? ' : 'Already have an account? ',
-          el('a', { href: '#', onClick: function (e) { e.preventDefault(); renderAuth(isLogin ? 'register' : 'login'); } }, isLogin ? 'Create an account' : 'Sign in'))));
+        el('p', { class: 'pv-muted', style: { fontSize: '12.5px', marginTop: '14px' }, text: 'Don’t have an account? Contact your clinic to create your portal login.' })));
 
     root.appendChild(el('div', { class: 'pv-auth' }, aside, main));
   }
@@ -377,7 +347,7 @@
         return el('div', { class: 'pv-list-item' }, icon('calendar'),
           el('div', { class: 'body' }, el('div', { class: 'title', text: a.petName || 'Appointment' }),
             el('div', { class: 'meta', text: fmtDate(a.appointmentDate) + (a.appointmentTime ? ' · ' + a.appointmentTime : '') + (a.doctor ? ' · ' + a.doctor : '') })),
-          el('span', { class: 'pv-pill green', text: a.status }));
+          el('span', { class: 'pv-pill ' + (a.status === 'PENDING' ? 'amber' : 'green'), text: a.status }));
       })) : empty('calendar', 'No upcoming visits', 'Book an appointment to see it here.'));
     return el('div', {}, pageHead('Dashboard', 'A quick look at ' + ((state.profile && state.profile.fullName) || 'your') + '\u2019s pets'),
       d.unreadNotifications > 0 ? el('div', { class: 'pv-alert pv-alert-ok', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
@@ -434,7 +404,7 @@
     var pets = (await api('/api/portal/pets')).data || [];
     var list = r.data || [];
     function statusPill(s) {
-      var map = { CONFIRMED: 'green', CANCELLED: 'red', COMPLETED: 'blue' };
+      var map = { PENDING: 'amber', CONFIRMED: 'green', CANCELLED: 'red', COMPLETED: 'blue' };
       return el('span', { class: 'pv-pill ' + (map[s] || 'grey'), text: s });
     }
     function bookForm() {
@@ -459,7 +429,7 @@
       list.length ? el('div', { class: 'pv-card' }, el('table', { class: 'pv-table' },
         el('thead', {}, el('tr', {}, el('th', { text: 'Pet' }), el('th', { text: 'Date' }), el('th', { text: 'Time' }), el('th', { text: 'Doctor' }), el('th', { text: 'Status' }), el('th', { text: '' }))),
         el('tbody', {}, list.map(function (a) {
-          var canCancel = a.status === 'CONFIRMED' && String(a.appointmentDate).slice(0, 10) >= new Date().toISOString().slice(0, 10);
+          var canCancel = (a.status === 'CONFIRMED' || a.status === 'PENDING') && String(a.appointmentDate).slice(0, 10) >= new Date().toISOString().slice(0, 10);
           return el('tr', {},
             el('td', { text: a.petName || '—' }), el('td', { text: fmtDate(a.appointmentDate) }), el('td', { text: a.appointmentTime || '—' }),
             el('td', { text: a.doctor || '—' }), el('td', {}, statusPill(a.status)),

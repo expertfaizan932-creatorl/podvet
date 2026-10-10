@@ -252,6 +252,9 @@ module.exports = {
   listClientPets: (clientId) => apiFetch(`/api/clients/${clientId}/pets`, { auth: true }),
   createClientPet: (clientId, payload) =>
     apiFetch(`/api/clients/${clientId}/pets`, { method: 'POST', auth: true, body: payload }),
+  getClientPortalAccount: (clientId) => apiFetch(`/api/clients/${clientId}/portal-account`, { auth: true }),
+  createClientPortalAccount: (clientId, payload) =>
+    apiFetch(`/api/clients/${clientId}/portal-account`, { method: 'POST', auth: true, body: payload }),
 
   listPets: (params) => apiFetch(`/api/pets${queryString(params)}`, { auth: true }),
   listPetSpecies: () => apiFetch('/api/pets/species', { auth: true }),

@@ -571,6 +571,16 @@ async function ensureFeatureSchema(conn) {
     try { await conn.query('ALTER TABLE employees ADD COLUMN social_links TEXT DEFAULT NULL'); }
     catch (err) { console.error('ensureFeatureSchema employees.social_links skip', err.message); }
   }
+  // Customer-portal appointment requests start life as PENDING and only become
+  // CONFIRMED once the clinic approves them. Older databases shipped a 3-value
+  // enum, so widen it in place; the guard keeps this a no-op once applied.
+  try {
+    const [[apCol]] = await conn.query(
+      "SELECT COLUMN_TYPE AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='appointments' AND COLUMN_NAME='status'");
+    if (apCol && !/PENDING/i.test(String(apCol.t || ''))) {
+      await conn.query("ALTER TABLE appointments MODIFY COLUMN status ENUM('PENDING','CONFIRMED','CANCELLED','COMPLETED') DEFAULT 'CONFIRMED'");
+    }
+  } catch (err) { console.error('ensureFeatureSchema appointments.status enum skip', err.message); }
   // Vendor purchases (stock bought from a vendor) — two tables, so the items
   // can be listed/reversed without re-parsing a notes blob.
   try {
@@ -2232,6 +2242,54 @@ app.post('/api/clients/:id/pets', authMiddleware, async (req, res) => {
       [req.params.id, d.petName||'', d.sex||'Unknown', d.species||'Dog', d.breed||'', d.color||'', d.dateOfBirth||null, d.age||'', d.isNeutered?1:0, d.isMicrochipped?1:0]);
     res.json({ data: { id: r.insertId } });
     notify({ recipientAudience: 'STAFF', title: 'New pet registered', message: `${d.petName || 'A pet'} (${d.species || 'pet'})`, category: 'pet', priority: 'low', relatedEntityType: 'pet', relatedEntityId: r.insertId, eventKey: `pet-new-${r.insertId}` });
+  } catch (e) { res.status(500).json({ error: { message: e.message } }); }
+});
+// ── Customer portal access (clinic-created logins) ──────────────────────────
+// Self sign-up is disabled, so each clinic creates its customers' portal logins
+// here and shares the returned email + password with them.
+function generatePortalPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(10);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+app.get('/api/clients/:id/portal-account', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, email, is_active, last_login_at, created_at FROM client_accounts WHERE client_id=? ORDER BY id LIMIT 1', [req.params.id]);
+    if (!rows.length) return res.json({ data: { hasAccount: false } });
+    const a = rows[0];
+    res.json({ data: { hasAccount: true, id: a.id, email: a.email, isActive: !!a.is_active, lastLoginAt: a.last_login_at, createdAt: a.created_at } });
+  } catch (e) { res.status(500).json({ error: { message: e.message } }); }
+});
+app.post('/api/clients/:id/portal-account', authMiddleware, async (req, res) => {
+  try {
+    const [cl] = await db.query('SELECT id, client_name, contact_number FROM clients WHERE id=?', [req.params.id]);
+    if (!cl.length) return res.status(404).json({ error: { message: 'Client not found' } });
+    const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+    let password = String((req.body && req.body.password) || '');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: { message: 'Enter a valid email address.' } });
+    const generated = !password;
+    if (generated) password = generatePortalPassword();
+    if (password.length < 6) return res.status(400).json({ error: { message: 'Password must be at least 6 characters.' } });
+    const [dup] = await db.query('SELECT id, client_id FROM client_accounts WHERE email=?', [email]);
+    if (dup.length && Number(dup[0].client_id) !== Number(req.params.id)) {
+      return res.status(409).json({ error: { message: 'That email is already used by another customer.' } });
+    }
+    const hash = await bcrypt.hash(password, 10);
+    const [existing] = await db.query('SELECT id FROM client_accounts WHERE client_id=? ORDER BY id LIMIT 1', [req.params.id]);
+    let accountId;
+    if (existing.length) {
+      accountId = existing[0].id;
+      await db.query('UPDATE client_accounts SET email=?, password_hash=?, is_active=1 WHERE id=?', [email, hash, accountId]);
+    } else {
+      const [r] = await db.query('INSERT INTO client_accounts (client_id, email, password_hash, full_name, phone) VALUES (?,?,?,?,?)',
+        [req.params.id, email, hash, cl[0].client_name || null, cl[0].contact_number || null]);
+      accountId = r.insertId;
+    }
+    const clinicId = req.clinicId || 1;
+    notify({ recipientAudience: 'STAFF', title: 'Customer portal login ready', message: `${cl[0].client_name || 'Customer'} — ${email}`, category: 'client', priority: 'low', relatedEntityType: 'client', relatedEntityId: Number(req.params.id), eventKey: `client-portal-${accountId}-${Date.now()}` });
+    res.json({ success: true, data: { id: accountId, email, password, generated, portalPath: `/portal?c=${clinicId}` } });
   } catch (e) { res.status(500).json({ error: { message: e.message } }); }
 });
 app.get('/api/clients/:id/unpaid-ledger', authMiddleware, async (req, res) => {

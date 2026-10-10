@@ -150,6 +150,28 @@ module.exports = function setupClientsHandlers() {
     }
   });
 
+  // ── Customer portal access ────────────────────────────────────────────────
+  // The clinic creates each customer's portal login and shares the credentials.
+  ipcMain.handle('get-client-portal-account', async (_event, clientId) => {
+    try {
+      const result = await saasClient.getClientPortalAccount(clientId);
+      return { success: true, data: result.data };
+    } catch (err) {
+      console.error('[get-client-portal-account]', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('create-client-portal-account', async (_event, clientId, email, password) => {
+    try {
+      const result = await saasClient.createClientPortalAccount(clientId, { email, password: password || undefined });
+      return { success: true, data: result.data };
+    } catch (err) {
+      console.error('[create-client-portal-account]', err);
+      return { success: false, message: err.message, error: err.message };
+    }
+  });
+
   // Only used as a pre-submit UX check today — add-client/update-client
   // already enforce this server-side (409 on a real duplicate). A `contains`
   // search is good enough for this: phone numbers are specific enough that

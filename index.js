@@ -413,6 +413,10 @@ const alertsClientSource = (() => {
   try { return fs.readFileSync(path.join(__dirname, 'alerts-client.js'), 'utf8'); }
   catch { return '/* alerts-client.js missing */'; }
 })();
+const customersClientSource = (() => {
+  try { return fs.readFileSync(path.join(__dirname, 'customers-client.js'), 'utf8'); }
+  catch { return '/* customers-client.js missing */'; }
+})();
 
 // The clinic app is served as-is at /app (and every SPA route, via the catch-all
 // below). Its own screens decide auth: signed-out visitors get the app's real
@@ -425,7 +429,7 @@ function buildWebIndexHtml() {
   // before the app bundle's first render reads it — that is what makes the very
   // first paint show the clinic's logo, name and colour instead of the
   // platform's.
-  const inject = '\n    <script>window.__pvVersion=' + JSON.stringify(APP_VERSION) + ';</script>\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n    <script src="/alerts-client.js" defer></script>\n  ';
+  const inject = '\n    <script>window.__pvVersion=' + JSON.stringify(APP_VERSION) + ';</script>\n    <script src="/web-preload.js"></script>\n    <script src="/clinic-branding.js" defer></script>\n    <script src="/color-picker.js" defer></script>\n    <script src="/theme-picker.js" defer></script>\n    <script src="/mobile-ux.js" defer></script>\n    <script src="/referral-scan.js" defer></script>\n    <script src="/alerts-client.js" defer></script>\n    <script src="/customers-client.js" defer></script>\n  ';
   return raw.replace('<head>', '<head>\n    ' + inject);
 }
 const webIndexHtml = buildWebIndexHtml();
@@ -444,6 +448,10 @@ app.get('/clinic-branding.js', (req, res) => {
 app.get('/alerts-client.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.type('application/javascript').send(alertsClientSource);
+});
+app.get('/customers-client.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('application/javascript').send(customersClientSource);
 });
 app.get('/theme-picker.js', (req, res) => {
   res.type('application/javascript').send(themePickerSource);

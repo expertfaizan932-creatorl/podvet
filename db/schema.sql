@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     appointment_date DATE NOT NULL,
     appointment_time TIME,
     notes TEXT,
-    status ENUM('CONFIRMED','CANCELLED','COMPLETED') DEFAULT 'CONFIRMED',
+    status ENUM('PENDING','CONFIRMED','CANCELLED','COMPLETED') DEFAULT 'CONFIRMED',
     doctor VARCHAR(255),
     branch_id INT,
     prediscount_type ENUM('PERCENT','FIXED') DEFAULT NULL,

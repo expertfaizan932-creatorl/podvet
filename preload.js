@@ -75,6 +75,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteClient: (clientId) => invoke('delete-client', clientId),
     searchClients: (query) => invoke('search-clients', query),
     createClientAndPet: (data) => invoke('create-client-and-pet', data),
+    getClientPortalAccount: (clientId) => invoke('get-client-portal-account', clientId),
+    createClientPortalAccount: (clientId, email, password) => invoke('create-client-portal-account', clientId, email, password),
     checkDuplicatePhoneNumber: (phoneNumber, excludeClientId) => invoke('check-duplicate-phone-number', phoneNumber, excludeClientId),
      
     // Pet Management
